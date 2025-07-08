@@ -3,7 +3,7 @@ export function isString(str) {
 }
 
 export function isNonEmptyString(str) {
-  return str && typeof str === "string";
+  return typeof str === "string" && str !== "";
 }
 
 export function isNumber(num) {
@@ -32,9 +32,10 @@ export function isConstructor(fn) {
 
 export function mergeCallbacks(cbs, thisArg = null, ...bindArgs) {
   return (...args) => {
-    cbs
-      .filter(isFunction)
-      .forEach((cb) => cb.call(thisArg, ...bindArgs, ...args));
+    isArray(cbs) &&
+      cbs
+        .filter(isFunction)
+        .forEach((cb) => cb.call(thisArg, ...bindArgs, ...args));
     return thisArg;
   };
 }
@@ -53,11 +54,15 @@ export function isObject(obj) {
 }
 
 export function isNonNullObject(obj) {
-  return obj && isObject(obj);
+  return isObject(obj) && obj !== null;
 }
 
 export function isArray(arr) {
   return isObject(arr) && arr instanceof Array;
+}
+
+export function iPlainObject(obj) {
+  return isNonNullObject(obj) && !isArray(obj);
 }
 
 // 优先使用 queueMicrotask，否则降级到 Promise

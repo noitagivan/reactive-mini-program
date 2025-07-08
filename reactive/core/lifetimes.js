@@ -1,4 +1,4 @@
-import { useCurrentInstanceScope, useCurrentSetupContext } from "./setup";
+import { useRunningInstanceScope, useCurrentSetupContext } from "./setup";
 
 const addPageLifetimeListener = (lifetime, listener) => {
   const context = useCurrentSetupContext();
@@ -171,7 +171,7 @@ export function onComponentError(listener) {
  * @param { () => void } listener 生命周期回调函数
  */
 export function onMounted(listener) {
-  useCurrentInstanceScope()?.onAttached(listener);
+  useRunningInstanceScope()?.onAttached(listener);
 }
 
 /**
@@ -184,5 +184,5 @@ export function onMounted(listener) {
  * @param { () => void } listener 生命周期回调函数
  */
 export function onUnmounted(listener) {
-  useCurrentInstanceScope()?.onDispose(listener);
+  useRunningInstanceScope()?.onDispose(listener);
 }

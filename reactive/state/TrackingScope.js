@@ -29,6 +29,7 @@ export default class TrackingScope {
     return Object.freeze(stop);
   }
 
+  isRunning = false;
   isTrackForCompute = false;
   paused = false;
   handlers = {};
@@ -67,7 +68,9 @@ export default class TrackingScope {
       const { onTrigger, onComputed } = this.handlers;
       onTrigger?.(context.triggerer);
       context.setScope(this);
+      this.isRunning = true;
       const result = fn();
+      this.isRunning = true;
       context.resetScope(this);
       onComputed?.(result);
       return result;

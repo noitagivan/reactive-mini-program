@@ -3,12 +3,13 @@ import { useSignal } from "../state/index";
 import { computed } from "../state/signals";
 import { isFunction, mergeCallbacks } from "../utils/index";
 export default class InstanceScope {
-  pageId = 0;
+  isRunning = false;
   isPage = false;
   isComponent = false;
   parentScope = null;
   effectScope = null;
   instance = null;
+  pageId = 0;
 
   callbacks = {
     attach: [],
@@ -23,7 +24,6 @@ export default class InstanceScope {
   };
   setupRecords = {};
   lifetimes = {};
-  observers = {};
 
   constructor(instance, configs = {}) {
     Object.assign(this, { ...configs, instance });
@@ -37,13 +37,17 @@ export default class InstanceScope {
     try {
       context.setScope(this);
       this.effectScope.run(() => {
+        this.isRunning = true;
         const setupContext = fn();
+        this.isRunning = false;
         const { unbinds, methods } = setupContext.bindSignalsAndMethods(
           this.instance
         );
         this.setupRecords.unbind = mergeCallbacks(unbinds);
         this.setupRecords.methods = methods;
         this.setupRecords.lifetimes = setupContext.lifetimes;
+        this.setupRecords.componentObservers = setupContext.componentObservers;
+        console.log("componentObservers", setupContext.componentObservers);
         setupContext.reset();
       });
       context.resetScope(this);
@@ -101,6 +105,7 @@ export default class InstanceScope {
     return this;
   }
   getPackagingProps() {
+    console.log("getPackagingProps", this.isRunning);
     const { getter } = this.setupProps;
     return new Proxy(this.setupProps.values, {
       get: (t, p, r) => (p === RefSignal ? getter : getter?.()?.[p]),
@@ -137,10 +142,22 @@ export default class InstanceScope {
     return this;
   }
   invokeMethod(methodName, ...args) {
-    return this.setupRecords.methods[methodName]?.call(this.instance, ...args);
+    return this.setupRecords.methods?.[methodName]?.call(
+      this.instance,
+      ...args
+    );
   }
-  invokeObserversCallback(src, ...args) {
-    this.observers[src]?.call(this.instance, ...args);
+  removeObserver(src, index) {
+    if (this.setupRecords.componentObservers?.[src]) {
+      return delete this.setupRecords.componentObservers[src][index];
+    }
+    return false;
+  }
+  invokeObservers(src, ...values) {
+    mergeCallbacks(this.setupRecords.componentObservers?.[src]).call(
+      this.instance,
+      ...values
+    );
     return this;
   }
   getId() {

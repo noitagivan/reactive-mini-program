@@ -8,7 +8,7 @@ import {
 } from "../../reactive/index";
 
 defineComponent({
-  setup({ defineProps, plainProps }, context) {
+  setup({ defineProps, observe }, { isSettingUpInstance, plainProps }) {
     const props = defineProps({
       propA: {
         type: String,
@@ -22,9 +22,7 @@ defineComponent({
     const [buttonName, setButtonName] = useSignal("Button");
 
     console.log(
-      `[ Define Component ${
-        context.isSettingUpInstanceInstance ? "Instance" : "Options"
-      } ]`,
+      `[ Define Component ${isSettingUpInstance ? "Instance" : "Options"} ]`,
       isWatchable(props),
       props
     );
@@ -45,15 +43,22 @@ defineComponent({
       { immediate: true }
     );
 
+    observe(["propB"], (b) => {
+      console.log("defineComponent->observe(propB)", b);
+    });
+
     useSchedule(() => {
       setButtonName("Clickable");
     }, 3000);
+
+    const onChildMount = (e) => console.log("onChildMount", e.detail);
 
     return {
       buttonName,
       onClick2(e) {
         console.log("setup onClick2", e, this);
       },
+      onChildMount,
     };
   },
   methods: {

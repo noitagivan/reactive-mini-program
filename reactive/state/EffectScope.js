@@ -17,6 +17,7 @@ const CONTEXT = {
 };
 
 class Scope {
+  isRunning = false;
   parentScope = null;
   handlers = {};
   constructor() {
@@ -25,7 +26,9 @@ class Scope {
   run(fn) {
     try {
       CONTEXT.setCurrentScope(this);
+      this.isRunning = true;
       const result = fn();
+      this.isRunning = true;
       CONTEXT.setCurrentScope(this.parentScope);
       return result;
     } catch (error) {

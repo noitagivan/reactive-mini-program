@@ -126,9 +126,9 @@ export default class GlobalContext {
   settleObserversOption(propNames, setupCbs, optCbs) {
     const ctx = this;
     const cbs = { ...optCbs };
-    setupCbs.forEach(([src, cb]) => {
+    Object.keys(setupCbs).forEach((src) => {
       cbs[src] = function (...values) {
-        ctx.getComponentScope(this)?.invokeObserversCallback(src, ...values);
+        ctx.getComponentScope(this)?.invokeObservers(src, ...values);
         optCbs?.[src]?.call(this, ...values);
       };
     });

@@ -153,7 +153,7 @@ export function invokeDefinedComponentMethod(component, methodName, ...args) {
   );
 }
 
-export function useCurrentInstanceScope() {
+export function useRunningInstanceScope() {
   return CONTEXT.exposeInstanceScope();
 }
 

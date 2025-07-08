@@ -31,12 +31,17 @@ const CONTEXT = {
 };
 
 class WatchingScope extends TrackingScope {
+  isEffectOccurring = false;
   constructor(effect, { onTrack, onTrigger, onComputed } = {}) {
     super({
       onTrigger,
       onTrack,
       onComputed,
-      onSignal: ({ signal, value }) => this.runEffect({ signal, value }),
+      onSignal: ({ signal, value }) => {
+        this.isEffectOccurring = true;
+        this.runEffect({ signal, value });
+        this.isEffectOccurring = false;
+      },
     });
     this.runEffect = (triggerer) => (this.run(effect, triggerer), this);
   }

@@ -5,6 +5,7 @@ import {
   updateSignal,
 } from "../state/signals";
 import {
+  isArray,
   isConstructor,
   isFunction,
   isNonEmptyString,
@@ -14,12 +15,13 @@ import {
 import { invokeDefinedComponentMethod, invokeDefinedPageMethod } from "./setup";
 
 export default class SetupContex {
+  isSetupIdle = true;
   isPage = false;
   isComponent = false;
   lifetimes = {};
   pageHooks = {};
   componentProps = {};
-  componentObservers = [];
+  componentObservers = {};
   setupReturns = {};
 
   constructor(configs = {}) {
@@ -29,12 +31,19 @@ export default class SetupContex {
   }
   exposeContext(scope) {
     const ctx = {
-      instance: scope?.instance || null,
-      isSettingUpInstanceOptions: !scope?.instance,
-      isSettingUpInstanceInstance: !!scope?.instance,
+      $this: scope?.instance || null,
+      isSettingUpOptions: !scope?.instance,
+      isSettingUpInstance: !!scope?.instance,
       isPage: this.isPage,
       isComponent: this.isComponent,
     };
+    if (this.isComponent) {
+      ctx.emit = scope
+        ? scope.instance.triggerEvent.bind(scope.instance)
+        : () => {};
+      ctx.plainProps = scope ? () => scope.getSetupProps() : () => ({});
+    }
+    this.isSetupIdle = false;
     return Object.freeze(ctx);
   }
   exposeDefiners(scope) {
@@ -45,11 +54,26 @@ export default class SetupContex {
         this.defineProps.bind(this, scope),
         "cannot define properties more than once for a component"
       );
-      definers.plainProps = () => scope?.getSetupProps() || {};
+
+      definers.observe = this.addObserver.bind(this, scope);
     }
     return Object.freeze(definers);
   }
+  check(action) {
+    if (this.isSetupIdle)
+      throw new Error(`cannot ${action} without setup context`);
+  }
+  /**
+   * @param { string } name
+   * @param { Function } method
+   */
+  setPageHook(name, hook) {
+    if (this.isPage && isNonEmptyString(name) && isFunction(hook)) {
+      this.pageHooks[name] = hook;
+    }
+  }
   defineProps(scope, definations) {
+    this.check("define properties");
     if (isNonNullObject(definations) === false)
       throw new Error("properties must be a non-null object");
     if (scope) return scope.getPackagingProps();
@@ -78,27 +102,40 @@ export default class SetupContex {
    * @param { () => void } listener 生命周期回调函数
    */
   addLifetimeListener(lifetime, listener) {
+    this.check("add lifetime listeners");
     if (isFunction(listener)) {
       this.lifetimes[lifetime] = this.lifetimes[lifetime] || [];
       this.lifetimes[lifetime].push(listener);
     }
   }
-  /**
-   * @param { string } name
-   * @param { Function } method
-   */
-  setPageHook(name, hook) {
-    if (this.isPage && isNonEmptyString(name) && isFunction(hook)) {
-      this.pageHooks[name] = hook;
+  addObserver(scope, src, observer) {
+    this.check("define observers");
+    if (isFunction(observer)) {
+      src = isNonEmptyString(src)
+        ? src
+        : isArray(src)
+        ? src.filter(isNonEmptyString).join(",")
+        : "";
+      if (src) {
+        this.componentObservers[src] = this.componentObservers[src] || [];
+        if (scope) {
+          const index = this.componentObservers[src].length;
+          this.componentObservers[src].push(observer);
+          return () => scope.removeObserver(src, index);
+        }
+      }
     }
+    return () => false;
   }
   reset() {
     this.lifetimes = {};
     this.pageHooks = {};
     this.componentProps = [];
+    this.componentObservers = {};
     this.setupReturns = {};
   }
   initDataAndMethods(options) {
+    this.isSetupIdle = true;
     const data = { ...options.data };
     const methods = { ...options.methods };
     Object.entries(this.setupReturns).forEach(([name, property]) => {
@@ -123,6 +160,7 @@ export default class SetupContex {
     return { data, methods };
   }
   bindSignalsAndMethods(instance) {
+    this.isSetupIdle = true;
     let isSyncing = false;
     const signals = {};
     const unbinds = [];
