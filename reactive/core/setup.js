@@ -34,36 +34,32 @@ const setupPage = (options) => {
     data,
     onLoad(opts) {
       const pageId = this.getPageId();
-      // console.log("onLoad", pageId, this);
       const scope = new InstanceScope(this, {
         pageId,
         isPage: true,
         effectScope: createEffectScope(),
       }).run(() => CONTEXT.runSetup(setup, context), {
         setScope: (scope) => CONTEXT.setPageScope(pageId, scope),
-        resetScope: () => CONTEXT.resetSetupInstanceScope(),
+        resetScope: () => CONTEXT.resetInstanceScope(),
       });
+      console.log("lifetimes/onLoad", pageId, this);
       this.onReady = scope.setLifeTimeCallback("ready", onReady);
       this.onShow = scope.setLifeTimeCallback("show", onShow);
       this.onHide = scope.setLifeTimeCallback("hide", onHide);
       this.onResize = scope.setLifeTimeCallback("pageresize", onResize);
       this.onrouteDone = scope.setLifeTimeCallback("routeDone", onrouteDone);
-      scope.setLifeTimeCallback("unload");
-      scope.setLifeTimeCallback("unmounted");
+      scope.setLifeTimeCallback("unload", onUnload);
       scope.setLifeTimeCallback("load", onLoad)(opts);
-      scope.setLifeTimeCallback("mounted")();
+      scope.attachTo(null);
     },
     onUnload() {
       const pageId = this.getPageId();
       // console.log("onUnload", pageId);
-      const scope = CONTEXT.getPageScope(pageId);
-      if (scope) {
-        scope?.invokeLifeTimeCallback("unload");
-        scope?.invokeLifeTimeCallback("unmounted");
-        scope.stop();
-        CONTEXT.setPageScope(pageId, null);
-      }
-      onUnload?.call(this);
+      CONTEXT.getPageScope(pageId)
+        ?.invokeLifeTimeCallback("unload")
+        .invokeLifeTimeCallback("unmounted")
+        .stop();
+      CONTEXT.setPageScope(pageId, null);
     },
   });
 };
@@ -96,7 +92,6 @@ const setupComponent = (options) => {
     lifetimes: {
       ...CONTEXT.createLifetimeHooks(partialCLifetimes),
       created() {
-        // console.log("lifetimes/created", this.__wxExparserNodeId__);
         const scope = new InstanceScope(this, {
           pageId: this.getPageId(),
           isComponent: true,
@@ -105,9 +100,9 @@ const setupComponent = (options) => {
           .useDefaultProps(defaultProps)
           .run(() => CONTEXT.runSetup(setup, context), {
             setScope: (scope) => CONTEXT.setComponentScope(this, scope),
-            resetScope: () => CONTEXT.resetSetupInstanceScope(),
+            resetScope: () => CONTEXT.resetInstanceScope(),
           });
-
+        console.log("lifetimes/created", scope.pageId, scope.getId());
         cLifetimes.forEach((lifetime) => {
           const optCbs = lifetimes?.[lifetime] || options[lifetime];
           scope.setLifeTimeCallback(lifetime, optCbs);
@@ -115,25 +110,21 @@ const setupComponent = (options) => {
         pLifetimes.forEach((lifetime) =>
           scope.setLifeTimeCallback(lifetime, pageLifetimes?.[lifetime])
         );
-        scope?.invokeLifeTimeCallback("created");
+        scope.invokeLifeTimeCallback("created");
       },
       attached() {
-        console.log("lifetimes/attached", this, this.selectOwnerComponent());
+        // console.log("lifetimes/attached", this.__wxExparserNodeId__, this);
         const scope = CONTEXT.getComponentScope(this);
-        if (scope) {
-          scope?.invokeLifeTimeCallback("attached");
-          scope?.invokeLifeTimeCallback("mounted");
-        }
+        scope
+          ?.invokeLifeTimeCallback("attached")
+          .attachTo(CONTEXT.getParentComponentScopeOf(scope));
       },
       detached() {
         // console.log("lifetimes/detached", this.__wxExparserNodeId__);
-        const scope = CONTEXT.getComponentScope(this);
-        if (scope) {
-          scope?.invokeLifeTimeCallback("detached");
-          scope?.invokeLifeTimeCallback("unmounted");
-          scope.stop();
-          CONTEXT.setComponentScope(this, null);
-        }
+        CONTEXT.getComponentScope(this)
+          ?.invokeLifeTimeCallback("detached")
+          .stop();
+        CONTEXT.setComponentScope(this, null);
       },
     },
     pageLifetimes: CONTEXT.createLifetimeHooks(pLifetimes),
@@ -162,8 +153,8 @@ export function invokeDefinedComponentMethod(component, methodName, ...args) {
   );
 }
 
-export function useCurrentSetupInstanceScope() {
-  return CONTEXT.exposeSetupInstanceScope();
+export function useCurrentInstanceScope() {
+  return CONTEXT.exposeInstanceScope();
 }
 
 export function useCurrentSetupContext() {

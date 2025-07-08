@@ -1,15 +1,14 @@
 import {
   defineComponent,
+  isWatchable,
   useSchedule,
   useSignal,
   watch,
   watchEffect,
 } from "../../reactive/index";
-import { isWatchable } from "../../reactive/state/index";
 
-// components/component/component.js
 defineComponent({
-  setup({ defineProps, getPlainProps }, context) {
+  setup({ defineProps, plainProps }, context) {
     const props = defineProps({
       propA: {
         type: String,
@@ -31,10 +30,7 @@ defineComponent({
     );
 
     watchEffect(() => {
-      console.log(
-        "defineComponent->watchEffect->getPlainProps",
-        getPlainProps()
-      );
+      console.log("defineComponent->watchEffect->plainProps", plainProps());
     });
 
     watchEffect(() => {
@@ -60,32 +56,6 @@ defineComponent({
       },
     };
   },
-
-  /**
-   * 组件的初始数据
-   */
-  data: {},
-
-  observers: {
-    // "propB,propC"(v1, v2) {
-    //   console.log("propB,propC", v1, v2);
-    // },
-    // propC(v) {
-    //   console.log("propC", v);
-    // },
-  },
-
-  ready() {
-    // this.properties.propC = 234;
-    this.setData({
-      propC: 234,
-    });
-    console.log("ready", this.properties);
-  },
-
-  /**
-   * 组件的方法列表
-   */
   methods: {
     onClick1(e) {
       console.log("methods onClick1", e, this);

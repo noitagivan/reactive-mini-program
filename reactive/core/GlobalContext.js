@@ -1,7 +1,4 @@
-import { createEffectScope, runInSilentScope } from "../state/EffectScope";
-import { isFunction, isNonNullObject } from "../utils/index";
-import { cLifetimes, partialCLifetimes, pLifetimes } from "./consts";
-import InstanceScope from "./InstanceScope";
+import { isFunction } from "../utils/index";
 import SetupContex from "./SetupContex";
 
 export default class GlobalContext {
@@ -10,7 +7,7 @@ export default class GlobalContext {
   setPageScope(id, scope) {
     if (scope) {
       this.pageScopeMap.set(id, scope);
-      this.setupInstanceScope = scope;
+      this.instanceScope = scope;
     } else {
       this.pageScopeMap.delete(id);
     }
@@ -22,7 +19,7 @@ export default class GlobalContext {
   setComponentScope(instance, scope) {
     if (scope) {
       this.componentScopeMap.set(instance, scope);
-      this.setupInstanceScope = scope;
+      this.instanceScope = scope;
     } else {
       this.componentScopeMap.delete(instance);
     }
@@ -30,6 +27,16 @@ export default class GlobalContext {
   }
   getComponentScope(instance) {
     return this.componentScopeMap.get(instance) || null;
+  }
+  getParentComponentScopeOf(scope) {
+    let parent = null;
+    let instance = scope.instance;
+    for (;;) {
+      instance = instance.selectOwnerComponent();
+      if (!instance) return null;
+      parent = this.getComponentScope(instance);
+      if (parent) return parent;
+    }
   }
 
   setupContex = null;
@@ -44,28 +51,28 @@ export default class GlobalContext {
   }
   exposeSetupContext() {
     const context = this.getSetupContex();
-    const instanceScope = this.exposeSetupInstanceScope();
+    const instanceScope = this.exposeInstanceScope();
     if (context) {
       const { isPage, isComponent, addLifetimeListener } = context;
 
       return {
         isPage,
         isComponent,
-        addLifetimeListener,
+        addLifetimeListener: instanceScope ? addLifetimeListener : null,
         instanceScope,
       };
     }
     return null;
   }
 
-  setupInstanceScope = null;
-  getSetupInstanceScope() {
-    return this.setupInstanceScope;
+  instanceScope = null;
+  getInstanceScope() {
+    return this.instanceScope;
   }
-  resetSetupInstanceScope() {
-    this.setupInstanceScope = null;
+  resetInstanceScope() {
+    this.instanceScope = null;
   }
-  exposeSetupInstanceScope() {
+  exposeInstanceScope() {
     const formatScope = (scope) => {
       if (scope) {
         const { isPage, isComponent, parentScope, instance } = scope;
@@ -77,11 +84,15 @@ export default class GlobalContext {
           getPageInstance: () => pageScope.instance,
           getParentScope: () => formatScope(parentScope),
           getPageScope: () => formatScope(pageScope),
+          onAttached: scope.onAttached.bind(scope),
+          offAttached: scope.offAttached.bind(scope),
+          onDispose: scope.onDispose.bind(scope),
+          offDispose: scope.offDispose.bind(scope),
         };
       }
       return null;
     };
-    return formatScope(this.getSetupInstanceScope());
+    return formatScope(this.getInstanceScope());
   }
 
   /**
@@ -92,7 +103,7 @@ export default class GlobalContext {
     context.reset();
     this.setSetupContext(context);
     if (isFunction(setup)) {
-      const scope = this.getSetupInstanceScope();
+      const scope = this.getInstanceScope();
       context.setupReturns =
         setup(context.exposeDefiners(scope), context.exposeContext(scope)) ||
         {};

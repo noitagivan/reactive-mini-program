@@ -36,6 +36,7 @@ export default class TrackingScope {
 
   constructor({ onTrigger, onTrack, onSignal, onComputed } = {}) {
     this.handlers = {
+      onDisposeCallbacks: new Set(),
       onTrigger: isFunction(onTrigger) ? onTrigger : null,
       onTrack: isFunction(onTrack) ? onTrack : null,
       onSignal: isFunction(onSignal) ? onSignal : null,
@@ -74,6 +75,14 @@ export default class TrackingScope {
       context.resetScope(this);
       throw error;
     }
+  }
+  onDispose(cb) {
+    const { onDisposeCallbacks } = this.handlers;
+    onDisposeCallbacks.add(cb);
+  }
+  offDispose(cb) {
+    const { onDisposeCallbacks } = this.handlers;
+    onDisposeCallbacks.delete(cb);
   }
   track({ signal, value }) {
     const {

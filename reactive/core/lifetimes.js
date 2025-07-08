@@ -1,25 +1,13 @@
-import { useCurrentSetupContext } from "./setup";
+import { useCurrentInstanceScope, useCurrentSetupContext } from "./setup";
 
-/**
- * @param { string } lifetime 生命周期名称
- * @param { () => void } listener 生命周期回调函数
- */
 const addPageLifetimeListener = (lifetime, listener) => {
   const context = useCurrentSetupContext();
-  if (context?.isPage) {
-    context.addLifetimeListener(lifetime, listener);
-  }
+  if (context.isPage) context.addLifetimeListener?.(lifetime, listener);
 };
 
-/**
- * @param { string } lifetime 生命周期名称
- * @param { () => void } listener 生命周期回调函数
- */
 const addComponentLifetimeListener = (lifetime, listener) => {
   const context = useCurrentSetupContext();
-  if (context?.isComponent) {
-    context.addLifetimeListener(lifetime, listener);
-  }
+  if (context.isComponent) context.addLifetimeListener?.(lifetime, listener);
 };
 
 /**
@@ -56,7 +44,7 @@ export function onUnload(listener) {
  * @param { () => void } listener 生命周期回调函数
  */
 export function onReady(listener) {
-  useCurrentSetupContext()?.addLifetimeListener("ready", listener);
+  useCurrentSetupContext()?.addLifetimeListener?.("ready", listener);
 }
 
 /**
@@ -69,7 +57,7 @@ export function onReady(listener) {
  * @param { () => void } listener 生命周期回调函数
  */
 export function onShow(listener) {
-  useCurrentSetupContext()?.addLifetimeListener("show", listener);
+  useCurrentSetupContext()?.addLifetimeListener?.("show", listener);
 }
 
 /**
@@ -82,7 +70,7 @@ export function onShow(listener) {
  * @param { () => void } listener 生命周期回调函数
  */
 export function onHide(listener) {
-  useCurrentSetupContext()?.addLifetimeListener("hide", listener);
+  useCurrentSetupContext()?.addLifetimeListener?.("hide", listener);
 }
 
 /**
@@ -144,7 +132,7 @@ export function onMoved(listener) {
  * component/pageLifetimes/resize
  */
 export function onPageResize(listener) {
-  useCurrentSetupContext()?.addLifetimeListener("pageresize", listener);
+  useCurrentSetupContext()?.addLifetimeListener?.("pageresize", listener);
 }
 
 /**
@@ -157,7 +145,7 @@ export function onPageResize(listener) {
  * @param { () => void } listener 生命周期回调函数
  */
 export function onrouteDone(listener) {
-  useCurrentSetupContext()?.addLifetimeListener("routeDone", listener);
+  useCurrentSetupContext()?.addLifetimeListener?.("routeDone", listener);
 }
 
 /**
@@ -176,41 +164,25 @@ export function onComponentError(listener) {
 /**
  * onMounted
  *
- * page/onLoad
+ * after page/onLoad
  *
- * component/lifetimes/attached
- *
- * component/attached
+ * after component/attached
  *
  * @param { () => void } listener 生命周期回调函数
  */
 export function onMounted(listener) {
-  // useCurrentSetupContext()?.addLifetimeListener("mounted", listener);
-  const context = useCurrentSetupContext();
-  if (context?.isPage) {
-    onLoad(listener);
-  } else if (context?.isComponent) {
-    onAttached(listener);
-  }
+  useCurrentInstanceScope()?.onAttached(listener);
 }
 
 /**
  * onUnmounted
  *
- * page/onUnload
+ * after page/onUnload
  *
- * component/lifetimes/detached
- *
- * component/detached
+ * after component/detached
  *
  * @param { () => void } listener 生命周期回调函数
  */
 export function onUnmounted(listener) {
-  // useCurrentSetupContext()?.addLifetimeListener("unmounted", listener);
-  const context = useCurrentSetupContext();
-  if (context?.isPage) {
-    onUnload(listener);
-  } else if (context?.isComponent) {
-    onDetached(listener);
-  }
+  useCurrentInstanceScope()?.onDispose(listener);
 }

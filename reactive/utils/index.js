@@ -31,10 +31,12 @@ export function isConstructor(fn) {
 }
 
 export function mergeCallbacks(cbs, thisArg = null, ...bindArgs) {
-  return (...args) =>
+  return (...args) => {
     cbs
       .filter(isFunction)
       .forEach((cb) => cb.call(thisArg, ...bindArgs, ...args));
+    return thisArg;
+  };
 }
 
 export function onceInvokable(fn, msg) {

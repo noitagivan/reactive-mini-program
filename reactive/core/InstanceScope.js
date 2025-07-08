@@ -1,8 +1,7 @@
 import { RefSignal } from "../state/consts";
 import { useSignal } from "../state/index";
 import { computed } from "../state/signals";
-import { mergeCallbacks } from "../utils/index";
-
+import { isFunction, mergeCallbacks } from "../utils/index";
 export default class InstanceScope {
   pageId = 0;
   isPage = false;
@@ -10,6 +9,11 @@ export default class InstanceScope {
   parentScope = null;
   effectScope = null;
   instance = null;
+
+  callbacks = {
+    attach: [],
+    dispose: [],
+  };
 
   setupProps = {
     defined: false,
@@ -39,7 +43,7 @@ export default class InstanceScope {
         );
         this.setupRecords.unbind = mergeCallbacks(unbinds);
         this.setupRecords.methods = methods;
-        this.setupRecords.lifetimes = setupContext.lifetimes || {};
+        this.setupRecords.lifetimes = setupContext.lifetimes;
         setupContext.reset();
       });
       context.resetScope(this);
@@ -49,13 +53,40 @@ export default class InstanceScope {
       throw error;
     }
   }
+  attachTo(parentScope) {
+    const { attach } = this.callbacks;
+    if (parentScope) {
+      this.parentScope = parentScope;
+    }
+    mergeCallbacks(attach)();
+    delete this.callbacks.attach;
+    return this;
+  }
+  onAttached(cb) {
+    const { attach } = this.callbacks;
+    if (isFunction(cb)) attach.push(cb);
+  }
+  offAttached(cb) {
+    const { attach } = this.callbacks;
+    this.callbacks.attach = attach.filter((fn) => fn !== cb);
+  }
+  onDispose(cb) {
+    const { dispose } = this.callbacks;
+    dispose.push(cb);
+  }
+  offDispose(cb) {
+    const { dispose } = this.callbacks;
+    this.callbacks.dispose = dispose.filter((fn) => fn !== cb);
+  }
   stop() {
     // console.log("stop", this.effectScope, this.setupRecords.unbind);
+    mergeCallbacks(this.callbacks.dispose)();
     this.setupProps = {
       defined: false,
       getter: null,
       setter: null,
     };
+    this.callbacks = {};
     this.setupRecords.unbind?.();
     this.setupRecords = {};
     this.effectScope.stop();
@@ -103,12 +134,14 @@ export default class InstanceScope {
   };
   invokeLifeTimeCallback(lifetime, ...args) {
     this.lifetimes[lifetime]?.(...args);
+    return this;
   }
   invokeMethod(methodName, ...args) {
     return this.setupRecords.methods[methodName]?.call(this.instance, ...args);
   }
   invokeObserversCallback(src, ...args) {
-    return this.observers[src]?.call(this.instance, ...args);
+    this.observers[src]?.call(this.instance, ...args);
+    return this;
   }
   getId() {
     return this.isPage ? this.pageId : this.instance.__wxExparserNodeId__;

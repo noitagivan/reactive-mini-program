@@ -45,7 +45,7 @@ export default class SetupContex {
         this.defineProps.bind(this, scope),
         "cannot define properties more than once for a component"
       );
-      definers.getPlainProps = () => scope?.getSetupProps() || {};
+      definers.plainProps = () => scope?.getSetupProps() || {};
     }
     return Object.freeze(definers);
   }
