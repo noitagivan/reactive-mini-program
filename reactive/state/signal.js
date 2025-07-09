@@ -153,8 +153,14 @@ export const isComputedSignal = (signal) => !!signal[ComputedSignal];
 export const updateSignal = (signal, newValue) =>
   CONTEXT.getSignalInfo(signal)?.state?.set(newValue);
 
-export const subscribeSignal = (signal, handle) =>
-  CONTEXT.getSignalInfo(signal)?.state?.subscribe(handle) || (() => {});
+export const subscribeSignal = (signalOrRef, handle) =>
+  isWatchableSignal(signalOrRef)
+    ? CONTEXT.getSignalInfo(signalOrRef).state.subscribe(handle)
+    : isWatchableSignal(CONTEXT.refMap.get(signalOrRef)?.signal)
+    ? CONTEXT.getSignalInfo(
+        CONTEXT.refMap.get(signalOrRef).signal
+      ).state.subscribe(handle)
+    : () => {};
 
 export function useSignal(value) {
   if (CONTEXT.getCurrentWatchingScope()) {
@@ -172,7 +178,7 @@ export function useSignal(value) {
     if (ref.protected) {
       return [ref.signal, null];
     }
-    state = CONTEXT.getSignalInfo(signal).state;
+    state = CONTEXT.getSignalInfo(value).state;
   } else {
     state = new State(value);
   }
@@ -226,7 +232,7 @@ export function watchEffect(effect, { onTrack = null, onTrigger = null } = {}) {
   return scope.exposeHanlde();
 }
 
-export function ref(target, signal) {
+export function refSignal(target, signal) {
   if (CONTEXT.refMap.has(target)) return false;
   if (isSignal(target)) {
     console.warn("cannot ref signal to signals");
@@ -245,13 +251,16 @@ export function ref(target, signal) {
   return false;
 }
 
-export function protect(signal) {
+export function protectedSignal(signal) {
   const [get, set] = useSignal(signal);
   get[ProtectedSignal] = true;
   return [get, set];
 }
 
-export function computed(getter, { onTrack = null, onTrigger = null } = {}) {
+export function computedSignal(
+  getter,
+  { onTrack = null, onTrigger = null } = {}
+) {
   if (CONTEXT.getCurrentWatchingScope()) {
     throw new Error("cannot define computed state in effect");
   }

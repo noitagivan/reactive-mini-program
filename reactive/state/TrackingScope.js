@@ -1,5 +1,5 @@
 import { isFunction, scheduleMicrotask } from "../utils/index";
-import { subscribeSignal } from "./signals";
+import { subscribeSignal } from "./signal";
 
 const debounceEffect = (fn) => {
   let pending = false;

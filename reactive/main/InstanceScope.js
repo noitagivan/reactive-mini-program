@@ -1,6 +1,6 @@
 import { createEffectScope } from "../state/index";
 import { isFunction, mergeCallbacks } from "../utils/index";
-import InstanceContext from "./InstanceContext";
+import InstanceSetupContext from "./InstanceSetupContext";
 
 class InstanceScope {
   isRunning = false;
@@ -100,7 +100,7 @@ export default function createInstanceScope(instance, configs) {
   const scope = new InstanceScope();
   scope.instance = instance;
   scope.pageId = instance.getPageId();
-  scope.context = new InstanceContext({
+  scope.context = new InstanceSetupContext({
     ...configs,
     instance,
   });

@@ -1,7 +1,7 @@
 import {
   defineComponent,
   isWatchable,
-  // ref,
+  ref,
   useSchedule,
   useSignal,
   watch,
@@ -21,7 +21,7 @@ defineComponent({
       },
     });
     const [buttonName, setButtonName] = useSignal("Button");
-    // const buttonName2 = ref("Button2");
+    const buttonName2 = ref("Button2");
 
     console.log(
       `[ Define Component ${isSettingUpInstance ? "Instance" : "Options"} ]`,
@@ -36,8 +36,8 @@ defineComponent({
     watchEffect(() => {
       console.log(
         "defineComponent->watchEffect->propA",
-        props.propA
-        // buttonName2.value
+        props.propA,
+        buttonName2.value
       );
     });
 
@@ -55,13 +55,13 @@ defineComponent({
 
     useSchedule(() => {
       setButtonName("Clickable");
-      // buttonName2.value = "Clickable2";
+      buttonName2.value = "Clickable2";
     }, 3000);
 
     const onChildMount = (e) => console.log("onChildMount", e.detail);
 
     return {
-      buttonName,
+      buttonName: buttonName2,
       onClick2(e) {
         console.log("setup onClick2", e, this);
       },

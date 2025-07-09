@@ -1,4 +1,4 @@
-import { isSignal } from "../state/index";
+import { isSignal, isValueRefSignal } from "../state/index";
 import {
   isArray,
   isConstructor,
@@ -166,6 +166,8 @@ export default class SetupContex {
             };
           }
         }
+      } else if (isValueRefSignal(property)) {
+        data[name] = property.value;
       } else {
         data[name] = property;
       }

@@ -1,9 +1,17 @@
-import { protectedObject } from "../state/excel";
-import { isSignal, isWatchable, subscribeSignal } from "../state/index";
+import { protectedObjectSignal } from "../state/ObjectSignal";
+import {
+  isSignal,
+  isWatchable,
+  subscribeSignal,
+  isNestedObjectSignal,
+  isObjectSignal,
+  isValueRefSignal,
+} from "../state/index";
+import { updateSignal, useSignal } from "../state/signal";
 import { isFunction, mergeCallbacks } from "../utils/index";
 import SetupContex from "./SetupContex";
 
-export default class InstanceContext extends SetupContex {
+export default class InstanceSetupContext extends SetupContex {
   setupProps = {
     defined: false,
     getter: null,
@@ -18,7 +26,7 @@ export default class InstanceContext extends SetupContex {
       setupProps,
       setupProps: { values },
     } = this;
-    const [siganl, getter, setter] = protectedObject(values);
+    const [siganl, getter, setter] = protectedObjectSignal(values);
     // const [getSetupProps, setSetupProps] = protect(values);
     setupProps.getter = getter;
     setupProps.setter = setter;
@@ -53,6 +61,12 @@ export default class InstanceContext extends SetupContex {
   };
 
   bindSignalsAndMethods() {
+    /**
+     * TODO
+     * 由于小程序提供的 setData 粒度很细，所以这里建议使用 observer 来维护data和signal的数据同步
+     * 如维护 props 状态同步一样
+     * 而且，可以相比于劫持 setData ，使用 observer 似乎更安全
+     */
     this.isSetupIdle = true;
     let isSyncing = false;
     const { instance, setupRecords } = this;
@@ -63,26 +77,42 @@ export default class InstanceContext extends SetupContex {
     const updateData = (key, val) => {
       isSyncing || originSetData({ [key]: val });
     };
+    const bind = (name, signal) => {
+      signals[name] = useSignal(signal);
+      unbinds.push(
+        subscribeSignal(signal, (val) =>
+          updateData(
+            name,
+            isValueRefSignal(signal) ? val.value.value : val.value
+          )
+        )
+      );
+    };
     Object.entries(this.setupReturns).forEach(([name, property]) => {
       if (isFunction(property)) {
         if (isSignal(property)) {
-          if (isWatchable(property)) {
-            signals[name] = property;
-            unbinds.push(
-              subscribeSignal(property, (val) => updateData(name, val.value))
-            );
-          }
+          if (isWatchable(property)) bind(name, property);
         } else methods[name] = property;
-      }
+      } else if (isObjectSignal(property)) bind(name, property);
     });
     if (unbinds.length) {
       instance.setData = (data) => {
         if (data && typeof data === "object") {
           originSetData(data);
           isSyncing = true;
-          Object.entries(data).forEach(
-            ([key, val]) => signals[key] && updateSignal(signals[key], val)
-          );
+          Object.entries(data).forEach(([key, val]) => {
+            if (signals[key]) {
+              if (isValueRefSignal(signals[key])) signals[key].value = val;
+              else if (isNestedObjectSignal(signals[key]))
+                Object.assign(signals[key], val);
+              else updateSignal(signals[key], val);
+            }
+            if (signals[key]) {
+              updateSignal(signals[key], val);
+            } else if (signals[key]) {
+              updateSignal(signals[key], val);
+            }
+          });
           isSyncing = false;
         }
       };
