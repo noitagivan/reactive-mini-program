@@ -30,21 +30,21 @@ export default class TrackingScope {
   }
 
   isRunning = false;
-  isTrackForCompute = false;
+  isSync = false;
   paused = false;
   handlers = {};
   trackedSignalMap = new Map();
 
-  constructor({ onTrigger, onTrack, onSignal, onComputed } = {}) {
+  constructor({ onTrigger, onTrack, onSignal, onResult, isSync = false } = {}) {
     this.handlers = {
       onDisposeCallbacks: new Set(),
       onTrigger: isFunction(onTrigger) ? onTrigger : null,
       onTrack: isFunction(onTrack) ? onTrack : null,
       onSignal: isFunction(onSignal) ? onSignal : null,
+      onResult: isFunction(onResult) ? onResult : null,
     };
-    if (isFunction(onComputed)) {
-      this.isTrackForCompute = true;
-      this.handlers.onComputed = onComputed;
+    if (isSync) {
+      this.isSync = true;
       this.effect = this.effect.bind(this);
     } else {
       this.effect = debounceEffect(this.effect.bind(this));
@@ -65,14 +65,14 @@ export default class TrackingScope {
   }
   run(fn, ctx) {
     try {
-      const { onTrigger, onComputed } = this.handlers;
+      const { onTrigger, onResult } = this.handlers;
       onTrigger?.(ctx.triggerer);
       ctx.setScope(this);
       this.isRunning = true;
       const result = fn();
       this.isRunning = true;
       ctx.resetScope(this);
-      onComputed?.(result);
+      onResult?.(result);
       return result;
     } catch (error) {
       ctx.resetScope(this);

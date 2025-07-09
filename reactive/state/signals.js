@@ -1,4 +1,9 @@
-import { isArray, isFunction, mergeCallbacks } from "../utils/index";
+import {
+  isArray,
+  isFunction,
+  isNonNullObject,
+  mergeCallbacks,
+} from "../utils/index";
 import TrackingScope from "./TrackingScope";
 import {
   isRunInSilentScope,
@@ -6,9 +11,12 @@ import {
   onScopeDispose,
 } from "./EffectScope";
 
-export const RefSignal = Symbol("RefSignal");
+const ProtectedSignal = Symbol("ProtectedSignal");
+const ComputedSignal = Symbol("ComputedSignal");
+
 const CONTEXT = {
   signalInfoMap: new WeakMap(),
+  refMap: new WeakMap(),
   setSignalInfo(signal, meta) {
     this.signalInfoMap.set(signal, meta);
   },
@@ -29,20 +37,20 @@ const CONTEXT = {
     return this.watchingScopes[0] || null;
   },
 };
-
 class WatchingScope extends TrackingScope {
   isEffectOccurring = false;
-  constructor(effect, { onTrack, onTrigger, onComputed } = {}) {
+  isTrackForCompute = false;
+  constructor(effect, { isTrackForCompute, ...configs } = {}) {
     super({
-      onTrigger,
-      onTrack,
-      onComputed,
+      ...configs,
+      isSync: isTrackForCompute,
       onSignal: ({ signal, value }) => {
         this.isEffectOccurring = true;
         this.runEffect({ signal, value });
         this.isEffectOccurring = false;
       },
     });
+    this.isTrackForCompute = true;
     this.runEffect = (triggerer) => (this.run(effect, triggerer), this);
   }
   run(fn, triggerer) {
@@ -53,12 +61,11 @@ class WatchingScope extends TrackingScope {
     });
   }
 }
-
 class State {
   value = undefined;
   watchable = false;
   setterScopeSet = new Set();
-  constructor(value, isComputed) {
+  constructor(value) {
     this.value = value;
     const watchable = !isRunInSilentScope();
     if (watchable) {
@@ -74,7 +81,6 @@ class State {
 
     CONTEXT.setSignalInfo(this.get, {
       state: this,
-      isComputed,
       watchable,
       watchers: watchable ? new Set() : null,
     });
@@ -139,10 +145,10 @@ export const isWatchableSignal = (signal) =>
   isSignal(signal) && CONTEXT.getSignalInfo(signal).watchable === true;
 
 export const isWatchable = (source) =>
-  isWatchableSignal(source) || isWatchableSignal(source?.[RefSignal]);
+  isWatchableSignal(source) ||
+  isWatchableSignal(CONTEXT.refMap.get(source)?.signal);
 
-export const isComputed = (signal) =>
-  isSignal(signal) && CONTEXT.getSignalInfo(signal).isComputed === true;
+export const isComputedSignal = (signal) => !!signal[ComputedSignal];
 
 export const updateSignal = (signal, newValue) =>
   CONTEXT.getSignalInfo(signal)?.state?.set(newValue);
@@ -155,12 +161,22 @@ export function useSignal(value) {
     console.log("defineProps", CONTEXT.getCurrentWatchingScope());
     throw new Error("cannot define state in effect");
   }
-  const { get, set } = isSignal(value)
-    ? (() => {
-        const { state, isComputed } = CONTEXT.getSignalInfo(value);
-        return isComputed ? { get: value } : state;
-      })()
-    : new State(value);
+  let state;
+  if (isSignal(value)) {
+    if (value[ProtectedSignal]) {
+      return [value, null];
+    }
+    state = CONTEXT.getSignalInfo(value).state;
+  } else if (CONTEXT.refMap.has(value)) {
+    const ref = CONTEXT.refMap.get(value);
+    if (ref.protected) {
+      return [ref.signal, null];
+    }
+    state = CONTEXT.getSignalInfo(signal).state;
+  } else {
+    state = new State(value);
+  }
+  const { get, set } = state;
   return [get, set];
 }
 
@@ -177,21 +193,21 @@ export function watch(
     return TrackingScope.emptyWatchHandle;
   }
   if (isRunInSilentScope()) return TrackingScope.emptyWatchHandle;
-  signals = isWatchable(signals[RefSignal])
+  signals = isWatchable(signals)
     ? [signals]
     : isArray(signals)
     ? signals.filter(isWatchable)
     : [];
   if (signals.length === 0) return TrackingScope.emptyWatchHandle;
+  const invoke = (signal) =>
+    isSignal(signal) ? signal() : CONTEXT.refMap.get(signal)?.signal();
   const effect = () => {
-    const values = signals.map((signal) =>
-      isSignal(signal) ? signal() : signal[RefSignal]()
-    );
+    const values = signals.map(invoke);
     cb(...values);
     if (once) scope.stop();
   };
   const scope = new WatchingScope(effect, { onTrack, onTrigger });
-  scope.run(mergeCallbacks(signals.filter(isSignal)), {});
+  scope.run(() => signals.forEach(invoke), {});
   scope.canTrack = (signal) => false;
   if (immediate) scope.runEffect({});
   return scope.exposeHanlde();
@@ -202,22 +218,53 @@ export function watchEffect(effect, { onTrack = null, onTrigger = null } = {}) {
     throw new Error("cannot watch effect in effect");
   }
   if (isRunInSilentScope()) return TrackingScope.emptyWatchHandle;
-  const scope = new WatchingScope(effect, { onTrack, onTrigger });
+  const scope = new WatchingScope(effect, {
+    onTrack,
+    onTrigger,
+  });
   scope.runEffect({});
   return scope.exposeHanlde();
 }
 
-export function computed(computer, { onTrack = null, onTrigger = null } = {}) {
+export function ref(target, signal) {
+  if (CONTEXT.refMap.has(target)) return false;
+  if (isSignal(target)) {
+    console.warn("cannot ref signal to signals");
+    return false;
+  }
+  if (!isNonNullObject(target) && !isFunction(target)) {
+    throw new Error("cannot ref primitive-type-value to signals");
+  }
+  if (isSignal(signal)) {
+    CONTEXT.refMap.set(target, {
+      signal,
+      protected: !!signal[ProtectedSignal],
+    });
+    return true;
+  }
+  return false;
+}
+
+export function protect(signal) {
+  const [get, set] = useSignal(signal);
+  get[ProtectedSignal] = true;
+  return [get, set];
+}
+
+export function computed(getter, { onTrack = null, onTrigger = null } = {}) {
   if (CONTEXT.getCurrentWatchingScope()) {
     throw new Error("cannot define computed state in effect");
   }
-  const { get, set, watchable, setterScopeSet } = new State(computer(), true);
+  const { get, set, watchable, setterScopeSet } = new State(getter(), true);
+  get[ProtectedSignal] = true;
+  get[ComputedSignal] = true;
   if (watchable) {
     setterScopeSet.add(
-      new WatchingScope(() => computer(), {
+      new WatchingScope(() => getter(), {
         onTrack,
         onTrigger,
-        onComputed: (result) => set(result),
+        isSync: true,
+        onResult: (result) => set(result),
       }).runEffect({})
     );
   }

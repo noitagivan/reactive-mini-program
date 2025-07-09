@@ -28,20 +28,18 @@ function setupPage(options) {
     data,
     onLoad(opts) {
       const pageId = this.getPageId();
-      const scope = createInstanceScope(this, { isPage: true }).run(
-        (ctx) => CONTEXT.runSetup(setup, ctx),
-        {
-          setScope: (scp) => CONTEXT.setPageScope(pageId, scp),
-          resetScope: () => CONTEXT.resetInstanceScope(),
-        }
-      );
-      const ctx = scope.context;
-      console.log("lifetimes/onLoad", pageId, this);
+      // console.log("lifetimes/onLoad", pageId, this);
+      const scope = createInstanceScope(this, { isPage: true });
+      const ctx = scope.run((ctx) => CONTEXT.runSetup(setup, ctx), {
+        setScope: (scp) => CONTEXT.setPageScope(pageId, scp),
+        resetScope: () => CONTEXT.resetInstanceScope(),
+      });
       this.onReady = ctx.setLifeTimeCallback("ready", onReady);
       this.onShow = ctx.setLifeTimeCallback("show", onShow);
       this.onHide = ctx.setLifeTimeCallback("hide", onHide);
       this.onResize = ctx.setLifeTimeCallback("pageresize", onResize);
       this.onrouteDone = ctx.setLifeTimeCallback("routeDone", onrouteDone);
+      ctx.setLifeTimeCallback("load", onLoad);
       ctx.setLifeTimeCallback("unload", onUnload);
       scope.attachTo(null, opts);
     },
@@ -87,14 +85,12 @@ function setupComponent(options) {
       created() {
         const scope = createInstanceScope(this, {
           isComponent: true,
-        })
-          .use({ props: defaultProps })
-          .run((ctx) => CONTEXT.runSetup(setup, ctx), {
-            setScope: (scp) => CONTEXT.setComponentScope(this, scp),
-            resetScope: () => CONTEXT.resetInstanceScope(),
-          });
-        console.log("lifetimes/created", scope.pageId, scope.getId());
-        const ctx = scope.context;
+        }).use({ props: defaultProps });
+        // console.log("lifetimes/created", scope.pageId, scope.getId());
+        const ctx = scope.run((ctx) => CONTEXT.runSetup(setup, ctx), {
+          setScope: (scp) => CONTEXT.setComponentScope(this, scp),
+          resetScope: () => CONTEXT.resetInstanceScope(),
+        });
         cLifetimes.forEach((lifetime) => {
           const optCbs = lifetimes?.[lifetime] || options[lifetime];
           ctx.setLifeTimeCallback(lifetime, optCbs);

@@ -49,7 +49,6 @@ export default class SetupContex {
   }
   exposeDefiners(scope) {
     const definers = {};
-    console.log("exposeDefiners", this.isComponent);
     if (this.isPage) {
     } else if (this.isComponent) {
       definers.defineProps = onceInvokable(
@@ -58,7 +57,6 @@ export default class SetupContex {
       );
       definers.observe = this.addObserver.bind(this, scope);
     }
-    console.log("exposeDefiners", this.isComponent, definers);
     return Object.freeze(definers);
   }
 
@@ -82,7 +80,7 @@ export default class SetupContex {
     this.check("define properties");
     if (isNonNullObject(definations) === false)
       throw new Error("properties must be a non-null object");
-    if (scope) return scope.context.getPackagingProps();
+    if (scope) return scope.context.getPackagedProps();
 
     const names = [];
     const option = {};

@@ -24,9 +24,7 @@ class InstanceScope {
 
   use({ props }) {
     if (props) {
-      const { setupProps } = this.context;
-      setupProps.setter?.((setupProps.values = props));
-      setupProps.defined = true;
+      this.context.setupProps.values = props;
     }
     return this;
   }
@@ -40,7 +38,7 @@ class InstanceScope {
         this.callbacks.unbinds = this.context.bindSignalsAndMethods();
       });
       ctx.resetScope(this);
-      return this;
+      return this.context;
     } catch (error) {
       ctx.resetScope(this);
       throw error;

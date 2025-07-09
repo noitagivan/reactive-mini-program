@@ -61,7 +61,7 @@ export function isArray(arr) {
   return isObject(arr) && arr instanceof Array;
 }
 
-export function iPlainObject(obj) {
+export function isPlainObject(obj) {
   return isNonNullObject(obj) && !isArray(obj);
 }
 

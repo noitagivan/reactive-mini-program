@@ -101,7 +101,6 @@ export default class GlobalContext {
    * @param { SetupContex } context
    */
   runSetup(setup, context) {
-    console.log("runSetup", context);
     this.setSetupContext(context);
     if (isFunction(setup)) {
       const scope = this.getInstanceScope();
@@ -118,7 +117,7 @@ export default class GlobalContext {
     const hooks = {};
     lifetimes.forEach((lifetime) => {
       hooks[lifetime] = function () {
-        console.log(`lifetimes/${lifetime}`, this.__wxExparserNodeId__);
+        // console.log(`lifetimes/${lifetime}`, this.__wxExparserNodeId__);
         ctx.getComponentScope(this)?.context.invokeLifeTimeCallback(lifetime);
       };
     });

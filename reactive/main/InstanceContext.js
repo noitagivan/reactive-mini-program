@@ -1,6 +1,5 @@
-import { RefSignal } from "../state/signals";
-import { useSignal, computed, isSignal } from "../state/index";
-import { isWatchableSignal, subscribeSignal } from "../state/signals";
+import { protectedObject } from "../state/excel";
+import { isSignal, isWatchable, subscribeSignal } from "../state/index";
 import { isFunction, mergeCallbacks } from "../utils/index";
 import SetupContex from "./SetupContex";
 
@@ -14,22 +13,17 @@ export default class InstanceContext extends SetupContex {
   lifetimes = {};
   methods = {};
 
-  constructor(configs = {}) {
-    super(configs);
-    if (this.isComponent) {
-      const [getSetupProps, setSetupProps] = useSignal({});
-      this.setupProps.getter = computed(() => getSetupProps());
-      this.setupProps.setter = setSetupProps;
-    }
-  }
-  getPackagingProps() {
-    console.log("getPackagingProps", this.isRunning);
-    const { getter } = this.setupProps;
-    return new Proxy(this.setupProps.values, {
-      get: (t, p, r) => (p === RefSignal ? getter : getter?.()?.[p]),
-      set: (t, p, v, r) => false,
-      deleteProperty: (t, p) => false,
-    });
+  getPackagedProps() {
+    const {
+      setupProps,
+      setupProps: { values },
+    } = this;
+    const [siganl, getter, setter] = protectedObject(values);
+    // const [getSetupProps, setSetupProps] = protect(values);
+    setupProps.getter = getter;
+    setupProps.setter = setter;
+    setupProps.defined = true;
+    return siganl;
   }
   getSetupProps() {
     const { defined, getter } = this.setupProps;
@@ -38,8 +32,10 @@ export default class InstanceContext extends SetupContex {
   }
   syncSetupProps(values) {
     const { defined, setter } = this.setupProps;
+    console.log("syncSetupProps", defined, values);
     if (defined && setter) {
-      setter((this.setupProps.values = values));
+      this.setupProps.values = values;
+      setter(values);
     }
   }
   setLifeTimeCallback = (lifetime, ...optCbs) => {
@@ -70,7 +66,7 @@ export default class InstanceContext extends SetupContex {
     Object.entries(this.setupReturns).forEach(([name, property]) => {
       if (isFunction(property)) {
         if (isSignal(property)) {
-          if (isWatchableSignal(property)) {
+          if (isWatchable(property)) {
             signals[name] = property;
             unbinds.push(
               subscribeSignal(property, (val) => updateData(name, val.value))
