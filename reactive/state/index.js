@@ -7,4 +7,9 @@ export {
   watchEffect,
   computed,
 } from "./signals";
-export { createEffectScope } from "./EffectScope";
+export {
+  default as createEffectScope,
+  getCurrentEffectScope,
+  onScopeDispose,
+  offScopeDispose,
+} from "./EffectScope";

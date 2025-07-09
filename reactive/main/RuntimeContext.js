@@ -4,6 +4,13 @@ import SetupContex from "./SetupContex";
 export default class GlobalContext {
   pageScopeMap = new Map();
   componentScopeMap = new WeakMap();
+  instanceScope = null;
+  getInstanceScope() {
+    return this.instanceScope;
+  }
+  resetInstanceScope() {
+    this.instanceScope = null;
+  }
   setPageScope(id, scope) {
     if (scope) {
       this.pageScopeMap.set(id, scope);
@@ -39,6 +46,30 @@ export default class GlobalContext {
     }
   }
 
+  exposeInstanceScope() {
+    const formatScope = (scope) => {
+      if (scope) {
+        const { isPage, isComponent, parentScope, instance } = scope;
+        const pageScope = this.getPageScope(scope.pageId);
+        return {
+          isPage,
+          isComponent,
+          getInstance: () => instance,
+          getPageInstance: () => pageScope.instance,
+          getParentScope: () => formatScope(parentScope),
+          getPageScope: () => formatScope(pageScope),
+          onAttached: scope.onAttached.bind(scope),
+          offAttached: scope.offAttached.bind(scope),
+          onDispose: scope.onDispose.bind(scope),
+          offDispose: scope.offDispose.bind(scope),
+        };
+      }
+      return null;
+    };
+    return formatScope(this.getInstanceScope());
+  }
+
+  optionsSetupContext = new SetupContex();
   setupContex = null;
   /**
    * @returns { SetupContex | null }
@@ -65,42 +96,12 @@ export default class GlobalContext {
     return null;
   }
 
-  instanceScope = null;
-  getInstanceScope() {
-    return this.instanceScope;
-  }
-  resetInstanceScope() {
-    this.instanceScope = null;
-  }
-  exposeInstanceScope() {
-    const formatScope = (scope) => {
-      if (scope) {
-        const { isPage, isComponent, parentScope, instance } = scope;
-        const pageScope = this.getPageScope(scope.pageId);
-        return {
-          isPage,
-          isComponent,
-          getInstance: () => instance,
-          getPageInstance: () => pageScope.instance,
-          getParentScope: () => formatScope(parentScope),
-          getPageScope: () => formatScope(pageScope),
-          onAttached: scope.onAttached.bind(scope),
-          offAttached: scope.offAttached.bind(scope),
-          onDispose: scope.onDispose.bind(scope),
-          offDispose: scope.offDispose.bind(scope),
-        };
-      }
-      return null;
-    };
-    return formatScope(this.getInstanceScope());
-  }
-
   /**
    * @param { Function } setup
    * @param { SetupContex } context
    */
   runSetup(setup, context) {
-    context.reset();
+    console.log("runSetup", context);
     this.setSetupContext(context);
     if (isFunction(setup)) {
       const scope = this.getInstanceScope();
@@ -117,18 +118,20 @@ export default class GlobalContext {
     const hooks = {};
     lifetimes.forEach((lifetime) => {
       hooks[lifetime] = function () {
-        // console.log(`lifetimes/${lifetime}`, this.__wxExparserNodeId__);
-        ctx.getComponentScope(this)?.invokeLifeTimeCallback(lifetime);
+        console.log(`lifetimes/${lifetime}`, this.__wxExparserNodeId__);
+        ctx.getComponentScope(this)?.context.invokeLifeTimeCallback(lifetime);
       };
     });
     return hooks;
   }
   settleObserversOption(propNames, setupCbs, optCbs) {
-    const ctx = this;
+    const runtime = this;
     const cbs = { ...optCbs };
     Object.keys(setupCbs).forEach((src) => {
       cbs[src] = function (...values) {
-        ctx.getComponentScope(this)?.invokeObservers(src, ...values);
+        runtime
+          .getComponentScope(this)
+          ?.context.invokeObservers(src, ...values);
         optCbs?.[src]?.call(this, ...values);
       };
     });
@@ -136,9 +139,9 @@ export default class GlobalContext {
       const propsWatcherSource = propNames.join(",");
       const sameSourceCallback = cbs[propsWatcherSource];
       cbs[propsWatcherSource] = function (...values) {
-        ctx
+        runtime
           .getComponentScope(this)
-          ?.syncSetupProps(
+          ?.context.syncSetupProps(
             Object.fromEntries(propNames.map((prop, i) => [prop, values[i]]))
           );
         sameSourceCallback?.call(this, ...values);

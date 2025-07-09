@@ -5,8 +5,8 @@ import {
   offScopeDispose,
   onScopeDispose,
 } from "./EffectScope";
-import { RefSignal } from "./consts";
 
+export const RefSignal = Symbol("RefSignal");
 const CONTEXT = {
   signalInfoMap: new WeakMap(),
   setSignalInfo(signal, meta) {

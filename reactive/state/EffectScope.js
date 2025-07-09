@@ -74,7 +74,7 @@ export function isRunInSilentScope() {
   return CONTEXT.getCurrentScope()?.isSilent ? true : false;
 }
 
-export function createEffectScope() {
+export default function createEffectScope() {
   const scope = new EffectScope();
   const run = scope.run.bind(scope);
   const stop = scope.stop.bind(scope);

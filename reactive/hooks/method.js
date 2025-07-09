@@ -1,5 +1,5 @@
 // import { isFunction } from "../utils/index";
-// import { useCurrentSetupContext } from "../core/setup";
+// import { useCurrentSetupContext } from "../main/setup";
 
 // export function defineMethods(methods) {
 //   console.log(new Error().stack);

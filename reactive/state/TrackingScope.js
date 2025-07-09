@@ -63,19 +63,19 @@ export default class TrackingScope {
   canTrack(signal) {
     return this.hasTracked(signal) === false;
   }
-  run(fn, context) {
+  run(fn, ctx) {
     try {
       const { onTrigger, onComputed } = this.handlers;
-      onTrigger?.(context.triggerer);
-      context.setScope(this);
+      onTrigger?.(ctx.triggerer);
+      ctx.setScope(this);
       this.isRunning = true;
       const result = fn();
       this.isRunning = true;
-      context.resetScope(this);
+      ctx.resetScope(this);
       onComputed?.(result);
       return result;
     } catch (error) {
-      context.resetScope(this);
+      ctx.resetScope(this);
       throw error;
     }
   }

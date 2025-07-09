@@ -3,7 +3,7 @@ import {
   isNonNullObject,
   isPositiveNumber,
 } from "../utils/index";
-import { onMounted, onUnmounted } from "../core/lifetimes";
+import { onMounted, onUnmounted } from "../main/lifetimes";
 
 /**
  *
