@@ -3,7 +3,7 @@ export {
   getCurrentEffectScope,
   onScopeDispose,
   offScopeDispose,
-} from "./EffectScope";
+} from "./SignalScope";
 export {
   nestedObjectSignal,
   nestedObjectSignal as reactive,

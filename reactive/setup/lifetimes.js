@@ -1,7 +1,7 @@
 import {
   useCurrentSettingUpInstanceScope,
   useCurrentSetupContext,
-} from "./setup";
+} from "./main";
 
 const addPageLifetimeListener = (lifetime, listener) => {
   const context = useCurrentSetupContext();

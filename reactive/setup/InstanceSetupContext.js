@@ -7,7 +7,7 @@ import {
   isObjectSignal,
   isValueRefSignal,
 } from "../state/index";
-import { updateSignal, useSignal } from "../state/signal";
+import { emitSignal, useSignal } from "../state/signal";
 import { isFunction, mergeCallbacks } from "../utils/index";
 import SetupContex from "./SetupContex";
 
@@ -105,12 +105,12 @@ export default class InstanceSetupContext extends SetupContex {
               if (isValueRefSignal(signals[key])) signals[key].value = val;
               else if (isNestedObjectSignal(signals[key]))
                 Object.assign(signals[key], val);
-              else updateSignal(signals[key], val);
+              else emitSignal(signals[key], val);
             }
             if (signals[key]) {
-              updateSignal(signals[key], val);
+              emitSignal(signals[key], val);
             } else if (signals[key]) {
-              updateSignal(signals[key], val);
+              emitSignal(signals[key], val);
             }
           });
           isSyncing = false;

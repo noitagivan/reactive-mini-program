@@ -7,7 +7,7 @@ import {
   isNonNullObject,
   onceInvokable,
 } from "../utils/index";
-import { invokeDefinedComponentMethod, invokeDefinedPageMethod } from "./setup";
+import { invokeDefinedComponentMethod, invokeDefinedPageMethod } from "./main";
 
 export default class SetupContex {
   instance = null;

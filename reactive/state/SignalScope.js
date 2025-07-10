@@ -4,9 +4,8 @@ const CONTEXT = {
   silentScope: null,
   currentScope: null,
   setCurrentScope(scope) {
-    if (scope && scope instanceof Scope) {
+    if (scope && scope instanceof SignalScope) {
       this.currentScope = scope;
-      // console.log("[ Current Scope ]", this.currentScope);
     } else {
       this.currentScope = null;
     }
@@ -16,7 +15,7 @@ const CONTEXT = {
   },
 };
 
-class Scope {
+class SignalScope {
   isRunning = false;
   parentScope = null;
   handlers = {};
@@ -39,7 +38,7 @@ class Scope {
   stop() {}
 }
 
-class EffectScope extends Scope {
+class EffectScope extends SignalScope {
   isEffective = true;
   constructor() {
     super();
@@ -62,7 +61,7 @@ class EffectScope extends Scope {
   }
 }
 
-CONTEXT.silentScope = new (class SilentScope extends Scope {
+CONTEXT.silentScope = new (class SilentScope extends SignalScope {
   isSilent = true;
 })();
 

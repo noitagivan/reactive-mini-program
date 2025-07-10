@@ -1,5 +1,5 @@
 import { isNonNullObject, isPlainObject } from "../utils/index";
-import { protectedSignal, refSignal } from "./signal";
+import { protectedSignal, ref2Signal } from "./signal";
 
 class ObjectSignal {
   constructor(target) {
@@ -29,7 +29,7 @@ const createNestedObjectSignal = (target, setParent) => {
     set: (t, p, v, r) => ((target[p] = v), setter(object)),
     deleteProperty: (t, p) => false,
   });
-  refSignal(signal, getter);
+  ref2Signal(signal, getter);
   return signal;
 };
 
@@ -44,7 +44,7 @@ export function protectedObjectSignal(target) {
     set: (t, p, v, r) => false,
     deleteProperty: (t, p) => false,
   });
-  refSignal(signal, getter);
+  ref2Signal(signal, getter);
   return [signal, getter, setter];
 }
 
@@ -78,6 +78,6 @@ export function valueRefSignal(value) {
     },
     deleteProperty: (t, p) => false,
   });
-  refSignal(signal, getter);
+  ref2Signal(signal, getter);
   return signal;
 }

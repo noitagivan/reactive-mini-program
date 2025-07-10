@@ -1,4 +1,4 @@
-import { runInSilentScope } from "../state/EffectScope";
+import { runInSilentScope } from "../state/SignalScope";
 import createInstanceScope from "./InstanceScope";
 import RuntimeContext from "./RuntimeContext";
 import {

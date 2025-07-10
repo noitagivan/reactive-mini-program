@@ -26,7 +26,10 @@ defineComponent({
     console.log(
       `[ Define Component ${isSettingUpInstance ? "Instance" : "Options"} ]`,
       isWatchable(props),
-      props
+      "props:",
+      props,
+      "buttonName:",
+      buttonName
     );
 
     watchEffect(() => {

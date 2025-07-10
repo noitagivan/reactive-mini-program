@@ -1,40 +1,33 @@
-import {
-  isArray,
-  isFunction,
-  isNonNullObject,
-  mergeCallbacks,
-} from "../utils/index";
+import { isArray, isFunction, isNonNullObject } from "../utils/index";
 import TrackingScope from "./TrackingScope";
-import {
-  isRunInSilentScope,
-  offScopeDispose,
-  onScopeDispose,
-} from "./EffectScope";
+import { isRunInSilentScope, onScopeDispose } from "./SignalScope";
+import State from "./State";
 
+const SignalSource = Symbol("SignalSource");
+const WatchableSignal = Symbol("WatchableSignal");
+const SignalEmitters = Symbol("SignalEmitters");
 const ProtectedSignal = Symbol("ProtectedSignal");
 const ComputedSignal = Symbol("ComputedSignal");
 
 const CONTEXT = {
-  signalInfoMap: new WeakMap(),
-  refMap: new WeakMap(),
-  setSignalInfo(signal, meta) {
-    this.signalInfoMap.set(signal, meta);
-  },
-  getSignalInfo(signal) {
-    return this.signalInfoMap.get(signal);
+  refererMap: new WeakMap(),
+  getSignal(signalOrRef) {
+    return isSignal(signalOrRef)
+      ? signalOrRef
+      : this.refererMap.get(signalOrRef);
   },
 
-  watchingScopes: [null],
+  watchingScopeStack: [null],
   pushWatchingScope(scope) {
-    this.watchingScopes.unshift(scope);
+    this.watchingScopeStack.unshift(scope);
   },
   popWatchingScope() {
-    if (this.watchingScopes.length > 1) {
-      this.watchingScopes.shift();
+    if (this.watchingScopeStack.length > 1) {
+      this.watchingScopeStack.shift();
     }
   },
-  getCurrentWatchingScope() {
-    return this.watchingScopes[0] || null;
+  getTopWatchingScope() {
+    return this.watchingScopeStack[0] || null;
   },
 };
 class WatchingScope extends TrackingScope {
@@ -61,129 +54,83 @@ class WatchingScope extends TrackingScope {
     });
   }
 }
-class State {
-  value = undefined;
-  watchable = false;
-  setterScopeSet = new Set();
-  constructor(value) {
-    this.value = value;
-    const watchable = !isRunInSilentScope();
-    if (watchable) {
-      this.watchable = true;
-      this.get = this.get.bind(this);
-      this.set = this.set.bind(this);
-      this.subscribe = this.subscribe.bind(this);
-    } else {
-      this.get = this._get.bind(this);
-      this.set = this._set.bind(this);
-      this.subscribe = this._subscribe.bind(this);
-    }
 
-    CONTEXT.setSignalInfo(this.get, {
-      state: this,
+class Signal {
+  static create(value) {
+    const watchable = !isRunInSilentScope();
+    const state = new State(value, {
       watchable,
-      watchers: watchable ? new Set() : null,
+      onRead: (e) =>
+        CONTEXT.getTopWatchingScope()?.track({
+          signal,
+          type: "track",
+          value: e.value,
+        }),
+      onBeforeWrite(e) {
+        const scope = CONTEXT.getTopWatchingScope();
+        if (scope) {
+          if (scope.isTrackForCompute) {
+            e.newValue = e.value;
+            throw new Error("cannot update state in computed scope");
+          }
+          if (scope.hasTracked(this.get)) {
+            e.newValue = e.value;
+            throw new Error("cannot update state in circular dependency scope");
+          }
+          meta[SignalEmitters].add(scope);
+        }
+      },
+      onAfterSubscribe(e) {
+        onScopeDispose(e.unsubscribe);
+      },
     });
-  }
-  _get() {
-    return this.value;
-  }
-  get() {
-    CONTEXT.getCurrentWatchingScope()?.track({
-      signal: this.get,
-      value: this._get(),
-    });
-    return this._get();
-  }
-  _set(newValue) {
-    this.value = newValue;
-  }
-  set(newValue) {
-    const scope = CONTEXT.getCurrentWatchingScope();
-    if (scope) {
-      if (scope.isTrackForCompute) {
-        throw new Error("cannot update state in computed scope");
-      }
-      if (scope.hasTracked(this.get)) {
-        throw new Error("cannot update state in circular dependency scope");
-      }
-      this.setterScopeSet.add(scope);
-    }
-    const oldValue = this._get();
-    if (newValue !== oldValue) {
-      this._set(newValue);
-      const { watchers } = CONTEXT.getSignalInfo(this.get) || {};
-      if (watchers?.size) {
-        mergeCallbacks(Array.from(watchers.values()), null, {
-          signal: this.get,
-          value: this._get(),
-          oldValue,
-        })();
-      }
-    }
-  }
-  _subscribe(cb) {
-    return () => {};
-  }
-  subscribe(cb) {
-    if (isRunInSilentScope()) return this._subscribe;
-    const { watchers } = CONTEXT.getSignalInfo(this.get);
-    const unsubscribe = () => {
-      watchers.delete(cb);
-      offScopeDispose(unsubscribe);
+    const meta = {
+      [SignalSource]: state,
+      [WatchableSignal]: watchable,
+      [SignalEmitters]: new Set(),
     };
-    watchers.add(cb);
-    onScopeDispose(unsubscribe);
-    return unsubscribe;
+    const signal = new Proxy(Signal, {
+      apply: () => state.value,
+      get: (t, p) => meta[p],
+      set: (t, p, v) => ((meta[p] = v), true),
+    });
+    return signal;
   }
 }
 
-export const isSignal = (signal) =>
-  isFunction(signal) && !!CONTEXT.getSignalInfo(signal);
-
-export const isWatchableSignal = (signal) =>
-  isSignal(signal) && CONTEXT.getSignalInfo(signal).watchable === true;
-
+export const isSignal = (signal) => signal?.[SignalSource] !== undefined;
+export const isWatchableSignal = (signal) => signal?.[WatchableSignal] === true;
 export const isWatchable = (source) =>
   isWatchableSignal(source) ||
-  isWatchableSignal(CONTEXT.refMap.get(source)?.signal);
-
-export const isComputedSignal = (signal) => !!signal[ComputedSignal];
-
-export const updateSignal = (signal, newValue) =>
-  CONTEXT.getSignalInfo(signal)?.state?.set(newValue);
-
-export const subscribeSignal = (signalOrRef, handle) =>
-  isWatchableSignal(signalOrRef)
-    ? CONTEXT.getSignalInfo(signalOrRef).state.subscribe(handle)
-    : isWatchableSignal(CONTEXT.refMap.get(signalOrRef)?.signal)
-    ? CONTEXT.getSignalInfo(
-        CONTEXT.refMap.get(signalOrRef).signal
-      ).state.subscribe(handle)
-    : () => {};
+  isWatchableSignal(CONTEXT.refererMap.get(source));
+export const isComputedSignal = (signal) => !!signal?.[ComputedSignal];
 
 export function useSignal(value) {
-  if (CONTEXT.getCurrentWatchingScope()) {
-    console.log("defineProps", CONTEXT.getCurrentWatchingScope());
+  if (CONTEXT.getTopWatchingScope()) {
+    console.log("defineProps", CONTEXT.getTopWatchingScope());
     throw new Error("cannot define state in effect");
   }
-  let state;
-  if (isSignal(value)) {
-    if (value[ProtectedSignal]) {
-      return [value, null];
-    }
-    state = CONTEXT.getSignalInfo(value).state;
-  } else if (CONTEXT.refMap.has(value)) {
-    const ref = CONTEXT.refMap.get(value);
-    if (ref.protected) {
-      return [ref.signal, null];
-    }
-    state = CONTEXT.getSignalInfo(value).state;
-  } else {
-    state = new State(value);
+  const signal = CONTEXT.getSignal(value) || Signal.create(value);
+  if (signal[ProtectedSignal]) return [signal, null];
+  return [signal, (value) => (signal[SignalSource].value = value)];
+}
+export function subscribeSignal(signalOrRef, handle) {
+  if (isRunInSilentScope()) return () => {};
+  const signal = CONTEXT.getSignal(signalOrRef);
+  if (isWatchable(signal)) {
+    return signal[SignalSource].subscribe(handle);
   }
-  const { get, set } = state;
-  return [get, set];
+  return () => {};
+}
+export function emitSignal(signal, newValue) {
+  if (!signal?.[ProtectedSignal] && signal?.[SignalSource]) {
+    signal[SignalSource].value = newValue;
+    return true;
+  }
+  return false;
+}
+export function captureSignal(signalOrRef) {
+  return CONTEXT.getSignal(signalOrRef)?.();
 }
 
 export function watch(
@@ -191,7 +138,7 @@ export function watch(
   cb,
   { immediate = false, onTrack = null, onTrigger = null, once = false } = {}
 ) {
-  if (CONTEXT.getCurrentWatchingScope()) {
+  if (CONTEXT.getTopWatchingScope()) {
     throw new Error("cannot watch state in effect");
   }
   if (isFunction(cb) === false) {
@@ -205,77 +152,71 @@ export function watch(
     ? signals.filter(isWatchable)
     : [];
   if (signals.length === 0) return TrackingScope.emptyWatchHandle;
-  const invoke = (signal) =>
-    isSignal(signal) ? signal() : CONTEXT.refMap.get(signal)?.signal();
   const effect = () => {
-    const values = signals.map(invoke);
+    const values = signals.map(captureSignal);
     cb(...values);
     if (once) scope.stop();
   };
   const scope = new WatchingScope(effect, { onTrack, onTrigger });
-  scope.run(() => signals.forEach(invoke), {});
+  scope.run(() => signals.forEach(captureSignal), {});
   scope.canTrack = (signal) => false;
   if (immediate) scope.runEffect({});
   return scope.exposeHanlde();
 }
 
 export function watchEffect(effect, { onTrack = null, onTrigger = null } = {}) {
-  if (CONTEXT.getCurrentWatchingScope()) {
+  if (CONTEXT.getTopWatchingScope()) {
     throw new Error("cannot watch effect in effect");
   }
   if (isRunInSilentScope()) return TrackingScope.emptyWatchHandle;
-  const scope = new WatchingScope(effect, {
-    onTrack,
-    onTrigger,
-  });
+  const scope = new WatchingScope(effect, { onTrack, onTrigger });
   scope.runEffect({});
   return scope.exposeHanlde();
 }
 
-export function refSignal(target, signal) {
-  if (CONTEXT.refMap.has(target)) return false;
+export function ref2Signal(target, signal) {
+  if (!isNonNullObject(target) && !isFunction(target)) {
+    throw new Error("cannot ref primitive-type-value to signals");
+  }
   if (isSignal(target)) {
     console.warn("cannot ref signal to signals");
     return false;
   }
-  if (!isNonNullObject(target) && !isFunction(target)) {
-    throw new Error("cannot ref primitive-type-value to signals");
-  }
+  if (CONTEXT.refererMap.get(target)) return false;
+
   if (isSignal(signal)) {
-    CONTEXT.refMap.set(target, {
-      signal,
-      protected: !!signal[ProtectedSignal],
-    });
+    CONTEXT.refererMap.set(target, signal);
     return true;
   }
   return false;
 }
 
 export function protectedSignal(signal) {
-  const [get, set] = useSignal(signal);
-  get[ProtectedSignal] = true;
-  return [get, set];
+  const [sgnl, set] = useSignal(signal);
+  sgnl[ProtectedSignal] = true;
+  return [sgnl, set];
 }
 
 export function computedSignal(
   getter,
   { onTrack = null, onTrigger = null } = {}
 ) {
-  if (CONTEXT.getCurrentWatchingScope()) {
-    throw new Error("cannot define computed state in effect");
+  if (CONTEXT.getTopWatchingScope()) {
+    throw new Error("cannot define computed signal in effect");
   }
-  const { get, set, watchable, setterScopeSet } = new State(getter(), true);
-  get[ProtectedSignal] = true;
-  get[ComputedSignal] = true;
-  if (watchable) {
-    setterScopeSet.add(
-      new WatchingScope(() => getter(), {
-        onTrack,
-        onTrigger,
-        isSync: true,
-        onResult: (result) => set(result),
-      }).runEffect({})
-    );
+  if (!isFunction(getter)) {
+    throw new Error("getter for computed signal must be a function");
   }
-  return get;
+  const signal = Signal.create(getter());
+  signal[ProtectedSignal] = true;
+  signal[ComputedSignal] = true;
+  signal[SignalEmitters].add(
+    new WatchingScope(() => getter(), {
+      onTrack,
+      onTrigger,
+      isSync: true,
+      onResult: (result) => (signal[SignalSource].value = result),
+    }).runEffect({})
+  );
+  return signal;
 }
