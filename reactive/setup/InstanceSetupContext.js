@@ -28,7 +28,7 @@ export default class InstanceSetupContext extends SetupContex {
       if (isFunction(value)) {
         value = computed(value);
       }
-      this.providedData?.set(key, { value });
+      this.providedData.set(key, { value });
       if (this.isPage) {
         if (isWatchable(value)) {
           subscribeSignal(value, (payload) =>
@@ -48,22 +48,18 @@ export default class InstanceSetupContext extends SetupContex {
     // 只能先创建对应的 signal, 然后在 attached 后再绑定
     // 为了保证 onMounted 生命周期能读到相对正确的值
     // 将绑定事件插入到 onBeforeMount
-    console.log("injectProvidedData", key, defaultValue, scope.parentScope);
     const [signal, setter] = protectedSignal(defaultValue);
     if (isNonEmptyString(key) || isSymbol(key)) {
       scope.onBeforeMount(() => scope.bindParentProvidedData(key, setter));
     }
     return signal;
   }
-  getProvidedData(key) {
+  getProvidedData(scope, key) {
     // 此方法被调用，说明组件是 attached 状态，
     // 因为只有 attached 时父子 Scope 的关系才明确
-    const { runtime, instance, isPage } = this;
-    if (this.providedData?.has(key)) {
-      return this.providedData.get(key);
-    }
+    const { isPage, providedData } = this;
+    if (providedData?.has(key)) return providedData.get(key);
     if (isPage) return false;
-    const scope = runtime.getComponentScope(instance);
     if (scope.parentScope) {
       return scope.parentScope.context.getProvidedData(key);
     }

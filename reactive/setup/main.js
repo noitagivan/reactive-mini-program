@@ -21,14 +21,9 @@ function setupPage(options) {
     CONTEXT.runSetup(setup, CONTEXT.optionsSetupContext.reset({ isPage: true }))
   );
   const { data, methods } = ctx.initDataAndMethods(options);
-  console.log(
-    "providedData",
-    ctx.providedData,
-    ctx.setupRecords.pageProvidedDataSignals
-  );
   ctx.reset();
 
-  const res = Page({
+  Page({
     ...methods,
     data,
     onLoad(opts) {
@@ -46,7 +41,6 @@ function setupPage(options) {
       this.onrouteDone = ctx.setLifeTimeCallback("routeDone", onrouteDone);
       ctx.setLifeTimeCallback("load", onLoad);
       ctx.setLifeTimeCallback("unload", onUnload);
-      console.log("providedData", ctx.providedData);
       scope.attachTo(null, opts);
     },
     onUnload() {
@@ -56,8 +50,6 @@ function setupPage(options) {
       CONTEXT.setPageScope(pageId, null);
     },
   });
-
-  console.log("provided", res);
 }
 function setupComponent(options) {
   const { setup, lifetimes, pageLifetimes } = options;
@@ -109,7 +101,7 @@ function setupComponent(options) {
         ctx.invokeLifeTimeCallback("created");
       },
       attached() {
-        // console.log("lifetimes/attached", this.__wxExparserNodeId__, this);
+        console.log("lifetimes/attached", this.__wxExparserNodeId__, this);
         const scope = CONTEXT.getComponentScope(this);
         scope?.attachTo(CONTEXT.getParentComponentScopeOf(scope));
       },

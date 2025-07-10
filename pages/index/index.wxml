@@ -35,8 +35,8 @@
       <view>
         <my-component propA="AAAAA" propB="{{globalCount%2===0}}" propC="{{globalCount}}" />
       </view>
-      <view> <my-component propA="BBBBB"/></view>
-      <view><child-component /> </view>
+      <!-- <view> <my-component propA="BBBBB"/></view> -->
+      <!-- <view><child-component /> </view> -->
       <text class="user-motto">{{motto}}</text>
     </view>
   </view>

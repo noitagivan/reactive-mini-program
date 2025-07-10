@@ -68,12 +68,10 @@ class InstanceScope {
   bindParentProvidedData(key, setter) {
     let data;
     if (this.parentScope) {
-      data = this.parentScope.context.getProvidedData(key);
+      data = this.parentScope.context.getProvidedData(this.parentScope, key);
     } else {
       data = this.context.getPageProvidedData(this, key);
     }
-
-    console.log("bindParentProvidedData", key, data);
     if (data === false) return;
     if (data) {
       if (isWatchable(data.value)) {
@@ -81,9 +79,7 @@ class InstanceScope {
           subscribeSignal(data.value, ({ value }) => setter(value))
         );
       } else setter(data.value);
-    } else {
-      this.listenPageProvidedData(key, setter);
-    }
+    } else this.listenPageProvidedData(key, setter);
   }
 
   listenPageProvidedData(key, setter) {

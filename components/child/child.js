@@ -6,9 +6,16 @@ defineComponent(({ inject }, { $this, emit }) => {
   const none = inject("none", "nulllll");
 
   watch(
-    [motto, propA, none],
-    (m, p, n) => {
-      console.log("watch providedData child", m, p, n);
+    [propA, none],
+    (p, n) => {
+      console.log("watch providedData child", p, n);
+    }
+    // { immediate: true }
+  );
+  watch(
+    motto,
+    (m) => {
+      console.log("watch providedData child", m);
     },
     { immediate: true }
   );

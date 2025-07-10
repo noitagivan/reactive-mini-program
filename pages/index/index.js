@@ -19,7 +19,7 @@ definePage(({ provide }, context) => {
   const count = useCounter();
   const motto = computed(() => `Hello World ${count()}`);
 
-  provide("page", context.$this?.__route__);
+  provide("page", context.$this?.is);
   provide("motto", motto);
 
   watchEffect(() => {
