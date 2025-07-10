@@ -171,10 +171,10 @@ export function onComponentError(listener) {
  *
  * after component/attached
  *
- * @param { () => void } listener 生命周期回调函数
+ * @param { () => void } handle 生命周期回调函数
  */
-export function onMounted(listener) {
-  useCurrentSettingUpInstanceScope()?.onMounted(listener);
+export function onMounted(handle) {
+  useCurrentSettingUpInstanceScope()?.onMounted(() => handle());
 }
 
 /**
@@ -184,8 +184,8 @@ export function onMounted(listener) {
  *
  * after component/detached
  *
- * @param { () => void } listener 生命周期回调函数
+ * @param { () => void } handle 生命周期回调函数
  */
-export function onUnmounted(listener) {
-  useCurrentSettingUpInstanceScope()?.onDispose(listener);
+export function onUnmounted(handle) {
+  useCurrentSettingUpInstanceScope()?.onDispose(() => handle());
 }

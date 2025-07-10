@@ -37,20 +37,20 @@ class WatchingScope extends TrackingScope {
     super({
       ...configs,
       isSync: isTrackForCompute,
-      onSignal: ({ signal, value }) => {
+      onEffect: ({ payload }) => {
         this.isEffectOccurring = true;
-        this.runEffect({ signal, value });
+        this.runEffect(payload);
         this.isEffectOccurring = false;
       },
     });
     this.isTrackForCompute = true;
-    this.runEffect = (triggerer) => (this.run(effect, triggerer), this);
+    this.runEffect = ({ signal }) => (this.run(effect, [signal]), this);
   }
-  run(fn, triggerer) {
+  run(fn, signals) {
     super.run(fn, {
+      signals,
       setScope: () => CONTEXT.pushWatchingScope(this),
       resetScope: () => CONTEXT.popWatchingScope(),
-      triggerer,
     });
   }
 }
@@ -159,7 +159,7 @@ export function watch(
     if (once) scope.stop();
   };
   const scope = new WatchingScope(effect, { onTrack, onTrigger });
-  scope.run(() => signals.forEach(captureSignal), {});
+  scope.run(() => signals.forEach(captureSignal), { signals });
   scope.canTrack = (signal) => false;
   if (immediate) scope.runEffect({});
   return scope.exposeHanlde();
@@ -216,7 +216,7 @@ export function computedSignal(
       onTrack,
       onTrigger,
       isSync: true,
-      onResult: (result) => (signal[SignalSource].value = result),
+      onResult: ({ payload }) => (signal[SignalSource].value = payload),
     }).runEffect({})
   );
   return signal;

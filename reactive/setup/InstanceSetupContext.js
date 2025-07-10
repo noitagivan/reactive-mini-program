@@ -19,7 +19,7 @@ export default class InstanceSetupContext extends SetupContex {
     setter: null,
     values: {},
   };
-  lifetimes = {};
+  lifetimes = new Map();
   providedData = new Map();
   methods = new Map();
 
@@ -107,12 +107,15 @@ export default class InstanceSetupContext extends SetupContex {
       lifetimes,
       setupRecords: { lifetimes: setupCbs },
     } = this;
-    lifetimes[lifetime] = mergeCallbacks(
-      [...(setupCbs[lifetime] || []), ...optCbs].flat(),
-      instance
+    lifetimes.set(
+      lifetime,
+      mergeCallbacks(
+        [...(setupCbs[lifetime] || []), ...optCbs].flat(),
+        instance
+      )
     );
     delete setupCbs[lifetime];
-    return lifetimes[lifetime];
+    return lifetimes.get(lifetime);
   };
 
   bindSignalsAndMethods() {
@@ -174,7 +177,7 @@ export default class InstanceSetupContext extends SetupContex {
     return unbinds;
   }
   invokeLifeTimeCallback(lifetime, ...args) {
-    this.lifetimes[lifetime]?.(...args);
+    this.lifetimes.get(lifetime)?.(...args);
     return this;
   }
   invokeObservers(src, ...values) {
@@ -188,7 +191,7 @@ export default class InstanceSetupContext extends SetupContex {
     return this.methods?.get(methodName)?.call(this.instance, ...args);
   }
   reset(configs = {}) {
-    this.lifetimes = {};
+    this.lifetimes.clear();
     this.providedData.clear();
     this.methods.clear();
     super.reset(configs);

@@ -25,12 +25,7 @@ export default class EventBus {
       handlers.add(handler);
 
       // 返回取消订阅的函数
-      return () => {
-        handlers.delete(handler);
-        if (handlers.size === 0) {
-          this._events.delete(eventType);
-        }
-      };
+      return this.off.bind(this, eventType, handler);
     }
     return () => {};
   }
@@ -63,14 +58,24 @@ export default class EventBus {
         parts.pop();
       }
     }
+    return this;
   }
 
   /**
    * 取消订阅特定事件的所有处理函数
    * @param { string | symbol } eventType 事件名
    */
-  off(eventType) {
-    this._events.delete(eventType);
+  off(eventType, handler) {
+    if (isFunction(handler)) {
+      const handlers = this._events.get(eventType);
+      handlers?.delete(handler);
+      if (handlers?.size === 0) {
+        this._events.delete(eventType);
+      }
+    } else {
+      this._events.delete(eventType);
+    }
+    return this;
   }
 
   /**
@@ -87,6 +92,7 @@ export default class EventBus {
         this.off(eventType);
       }
     }
+    return this;
   }
 
   /**
@@ -94,5 +100,6 @@ export default class EventBus {
    */
   clear() {
     this._events.clear();
+    return this;
   }
 }

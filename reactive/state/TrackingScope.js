@@ -1,4 +1,4 @@
-import { debounceMicrotask, isFunction } from "../utils/index";
+import { debounceMicrotask, EventBus } from "../utils/index";
 import { subscribeSignal } from "./signal";
 
 export default class TrackingScope {
@@ -13,17 +13,15 @@ export default class TrackingScope {
   isRunning = false;
   isSync = false;
   paused = false;
-  handlers = {};
-  trackedSignalMap = new Map();
+  // handlers = {};
+  eventBus = new EventBus();
+  trackedSignals = new Map();
 
-  constructor({ onTrigger, onTrack, onSignal, onResult, isSync = false } = {}) {
-    this.handlers = {
-      onDisposeCallbacks: new Set(),
-      onTrigger: isFunction(onTrigger) ? onTrigger : null,
-      onTrack: isFunction(onTrack) ? onTrack : null,
-      onSignal: isFunction(onSignal) ? onSignal : null,
-      onResult: isFunction(onResult) ? onResult : null,
-    };
+  constructor({ onTrigger, onTrack, onResult, onEffect, isSync = false } = {}) {
+    this.eventBus.on("trigger", onTrigger);
+    this.eventBus.on("track", onTrack);
+    this.eventBus.on("result", onResult);
+    this.eventBus.on("effect", onEffect);
     if (isSync) {
       this.isSync = true;
       this.effect = this.effect.bind(this);
@@ -39,49 +37,43 @@ export default class TrackingScope {
     return Object.freeze(stop);
   }
   hasTracked(signal) {
-    return this.trackedSignalMap.has(signal);
+    return this.trackedSignals.has(signal);
   }
   canTrack(signal) {
     return this.hasTracked(signal) === false;
   }
-  run(fn, ctx) {
+  run(fn, { signals, setScope, resetScope }) {
     try {
-      const { onTrigger, onResult } = this.handlers;
-      onTrigger?.(ctx.triggerer);
-      ctx.setScope(this);
+      this.eventBus.emit("trigger", { signals });
+      setScope(this);
       this.isRunning = true;
       const result = fn();
       this.isRunning = true;
-      ctx.resetScope(this);
-      onResult?.(result);
+      resetScope(this);
+      this.eventBus.emit("result", result);
       return result;
     } catch (error) {
-      ctx.resetScope(this);
+      resetScope(this);
       throw error;
     }
   }
   onDispose(cb) {
-    const { onDisposeCallbacks } = this.handlers;
-    onDisposeCallbacks.add(cb);
+    this.eventBus.on("dispose", cb);
   }
   offDispose(cb) {
-    const { onDisposeCallbacks } = this.handlers;
-    onDisposeCallbacks.delete(cb);
+    this.eventBus.off("dispose", cb);
   }
   track({ signal, value }) {
-    const {
-      trackedSignalMap,
-      handlers: { onTrack },
-    } = this;
+    const { trackedSignals, eventBus } = this;
     if (this.canTrack(signal)) {
-      trackedSignalMap.set(signal, subscribeSignal(signal, this.effect));
+      trackedSignals.set(signal, subscribeSignal(signal, this.effect));
     }
-    onTrack?.({ signal, value });
+    eventBus.emit("track", { signal, value });
   }
   effect({ signal, value }) {
-    const { paused, handlers } = this;
+    const { paused, eventBus } = this;
     if (paused) return;
-    handlers.onSignal?.({ signal, value });
+    eventBus.emit("effect", { signal, value });
   }
   pause() {
     this.paused = true;
@@ -90,11 +82,11 @@ export default class TrackingScope {
     this.paused = false;
   }
   stop() {
-    const { trackedSignalMap } = this;
-    if (trackedSignalMap.size) {
-      Array.from(trackedSignalMap.values()).forEach((cb) => cb());
-      trackedSignalMap.clear();
+    const { trackedSignals } = this;
+    if (trackedSignals.size) {
+      Array.from(trackedSignals.values()).forEach((cb) => cb());
+      trackedSignals.clear();
     }
-    this.handlers = null;
+    this.eventBus.clear();
   }
 }

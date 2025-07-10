@@ -3,7 +3,7 @@ import {
   isWatchable,
   subscribeSignal,
 } from "../state/index";
-import { EventBus, isFunction, mergeCallbacks } from "../utils/index";
+import { EventBus } from "../utils/index";
 import InstanceSetupContext from "./InstanceSetupContext";
 
 const eventBus = new EventBus();
@@ -16,12 +16,6 @@ class InstanceScope {
   parentScope = null;
   effectScope = null;
   pageId = `pageId:-1`;
-
-  callbacks = {
-    beforemount: [],
-    mounted: [],
-    dispose: [],
-  };
 
   getId() {
     return this.isPage ? this.pageId : this.instance.__wxExparserNodeId__;
@@ -40,7 +34,9 @@ class InstanceScope {
         this.isRunning = true;
         fn(this.context);
         this.isRunning = false;
-        this.callbacks.dispose.push(...this.context.bindSignalsAndMethods());
+        this.context
+          .bindSignalsAndMethods()
+          .forEach((unbind) => this.onDispose(unbind));
       });
       ctx.resetScope(this);
       return this.context;
@@ -50,7 +46,6 @@ class InstanceScope {
     }
   }
   attachTo(parentScope, options) {
-    const { beforemount, mounted } = this.callbacks;
     if (parentScope) {
       this.parentScope = parentScope;
     }
@@ -59,10 +54,12 @@ class InstanceScope {
     } else if (this.isComponent) {
       this.context.invokeLifeTimeCallback("attached");
     }
-    mergeCallbacks(beforemount)();
-    mergeCallbacks(mounted)();
-    delete this.callbacks.beforemount;
-    delete this.callbacks.mounted;
+    eventBus
+      .emit(`${this.pageId}/lifetime:beforemount`)
+      .off(`${this.pageId}/lifetime:beforemount`);
+    eventBus
+      .emit(`${this.pageId}/lifetime:mounted`)
+      .off(`${this.pageId}/lifetime:mounted`);
     return this;
   }
   bindParentProvidedData(key, setter) {
@@ -75,7 +72,7 @@ class InstanceScope {
     if (data === false) return;
     if (data) {
       if (isWatchable(data.value)) {
-        this.callbacks.dispose.push(
+        this.onDispose(
           subscribeSignal(data.value, ({ value }) => setter(value))
         );
       } else setter(data.value);
@@ -83,52 +80,47 @@ class InstanceScope {
   }
 
   listenPageProvidedData(key, setter) {
-    this.callbacks.dispose.push(
-      eventBus.on(`${this.pageId}/${key}`, ({ payload }) => setter(payload))
+    this.onDispose(
+      eventBus.on(`${this.pageId}/provide:${key}`, ({ payload }) =>
+        setter(payload)
+      )
     );
   }
   broadcastPageProvidedData(key, value) {
-    eventBus.emit(`${this.pageId}/${key}`, value);
+    eventBus.emit(`${this.pageId}/provide:${key}`, value);
   }
   onBeforeMount(cb) {
-    const { beforemount } = this.callbacks;
-    if (isFunction(cb)) beforemount.push(cb);
+    eventBus.on(`${this.pageId}/lifetime:beforemount`, cb);
   }
   offBeforeMount(cb) {
-    const { beforemount } = this.callbacks;
-    this.callbacks.beforemount = beforemount.filter((fn) => fn !== cb);
+    eventBus.off(`${this.pageId}/lifetime:beforemount`);
   }
   onMounted(cb) {
-    const { mounted } = this.callbacks;
-    if (isFunction(cb)) mounted.push(cb);
+    eventBus.on(`${this.pageId}/lifetime:mounted`, cb);
   }
   offMounted(cb) {
-    const { mounted } = this.callbacks;
-    this.callbacks.mounted = mounted.filter((fn) => fn !== cb);
+    eventBus.off(`${this.pageId}/lifetime:mounted`, cb);
   }
   onDispose(cb) {
-    const { dispose } = this.callbacks;
-    dispose.push(cb);
+    eventBus.on(`${this.pageId}/lifetime:dispose`, cb);
   }
   offDispose(cb) {
-    const { dispose } = this.callbacks;
-    this.callbacks.dispose = dispose.filter((fn) => fn !== cb);
+    eventBus.off(`${this.pageId}/lifetime:dispose`, cb);
   }
   stop() {
-    // console.log("stop", this.effectScope, this.setupRecords.unbind);
     if (this.isPage) {
       this.context.invokeLifeTimeCallback("unload");
     } else if (this.isComponent) {
       this.context.invokeLifeTimeCallback("detached");
     }
-    mergeCallbacks(this.callbacks.dispose)();
+    eventBus.emit(`${this.pageId}/lifetime:dispose`).offNamespace(this.pageId);
+
     this.context.reset();
     this.setupProps = {
       defined: false,
       getter: null,
       setter: null,
     };
-    this.callbacks = {};
 
     this.effectScope.stop();
     this.effectScope = null;
