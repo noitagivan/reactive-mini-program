@@ -1,24 +1,5 @@
-import { isFunction, scheduleMicrotask } from "../utils/index";
+import { debounceMicrotask, isFunction } from "../utils/index";
 import { subscribeSignal } from "./signal";
-
-const debounceEffect = (fn) => {
-  let pending = false;
-  let latestArgs;
-
-  return function (...args) {
-    latestArgs = args;
-
-    if (!pending) {
-      pending = true;
-      scheduleMicrotask(() => {
-        const applyArgs = latestArgs;
-        latestArgs = undefined;
-        pending = false;
-        fn(...applyArgs);
-      });
-    }
-  };
-};
 
 export default class TrackingScope {
   static get emptyWatchHandle() {
@@ -47,7 +28,7 @@ export default class TrackingScope {
       this.isSync = true;
       this.effect = this.effect.bind(this);
     } else {
-      this.effect = debounceEffect(this.effect.bind(this));
+      this.effect = debounceMicrotask(this.effect.bind(this));
     }
   }
   exposeHanlde() {

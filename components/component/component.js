@@ -9,7 +9,10 @@ import {
 } from "../../reactive/index";
 
 defineComponent({
-  setup({ defineProps, observe }, { isSettingUpInstance, plainProps }) {
+  setup(
+    { defineProps, observe, inject, provide },
+    { isSettingUpInstance, $props }
+  ) {
     const props = defineProps({
       propA: {
         type: String,
@@ -23,6 +26,10 @@ defineComponent({
     const [buttonName, setButtonName] = useSignal("Button");
     const buttonName2 = ref("Button2");
 
+    const page = inject("page");
+    const motto = inject("motto", "replace1");
+    provide("propA", () => props.propA);
+
     console.log(
       `[ Define Component ${isSettingUpInstance ? "Instance" : "Options"} ]`,
       isWatchable(props),
@@ -32,8 +39,16 @@ defineComponent({
       buttonName
     );
 
+    watch(
+      [page, motto],
+      (p, m) => {
+        console.log("watch providedData com", p, m);
+      },
+      { immediate: true }
+    );
+
     watchEffect(() => {
-      console.log("defineComponent->watchEffect->plainProps", plainProps());
+      console.log("defineComponent->watchEffect->$props", $props());
     });
 
     watchEffect(() => {

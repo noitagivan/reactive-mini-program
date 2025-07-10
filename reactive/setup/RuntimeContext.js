@@ -58,8 +58,8 @@ export default class GlobalContext {
           getPageInstance: () => pageScope.instance,
           getParentScope: () => formatScope(parentScope),
           getPageScope: () => formatScope(pageScope),
-          onAttached: scope.onAttached.bind(scope),
-          offAttached: scope.offAttached.bind(scope),
+          onMounted: scope.onMounted.bind(scope),
+          offMounted: scope.offMounted.bind(scope),
           onDispose: scope.onDispose.bind(scope),
           offDispose: scope.offDispose.bind(scope),
         };
@@ -75,6 +75,7 @@ export default class GlobalContext {
    * @returns { SetupContex | null }
    */
   setSetupContext(ctx) {
+    ctx && (ctx.runtime = this);
     this.setupContex = ctx;
   }
   getSetupContex() {

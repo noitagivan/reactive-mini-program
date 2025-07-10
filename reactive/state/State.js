@@ -1,53 +1,39 @@
-import { mergeCallbacks } from "../utils/index";
+import { EventBus, isFunction } from "../utils/index";
 
 export default class State {
   _value = undefined;
-  _watchers = null;
+  _watchable = false;
+  _eventBus = new EventBus();
 
-  constructor(
-    value,
-    {
-      watchable,
-      onRead,
-      onBeforeWrite,
-      onAfterWrite,
-      onBeforeSubscribe,
-      onAfterSubscribe,
-    }
-  ) {
+  constructor(value, { watchable, ...hooks }) {
     this._value = value;
-    this._hooks = {
-      onRead,
-      onBeforeWrite,
-      onAfterWrite,
-      onBeforeSubscribe,
-      onAfterSubscribe,
-    };
-    if (watchable) {
-      this._watchers = new Set();
-    }
+    this._watchable = watchable;
+    this._eventBus.on("getstate", hooks.onGet);
+    this._eventBus.on("beforesetstate", hooks.onBeforeSet);
+    this._eventBus.on("aftersetstate", hooks.onAfterSet);
+    this._eventBus.on("beforesubscribe", hooks.onBeforeSubscribe);
+    this._eventBus.on("aftersubscribe", hooks.onAfterSubscribe);
   }
 
   get value() {
-    const evt = { type: "read", value: this._value };
-    this._hooks?.onRead?.({ type: "read", value: this._value });
-    return evt.value;
+    const payload = { value: this._value };
+    this._eventBus?.emit("getstate", payload);
+    return payload.value;
   }
   set value(newValue) {
-    const { _value: oldValue, _watchers: watchers } = this;
-    const evt = { type: "beforewrite", value: this._value, newValue };
-    this._hooks?.onBeforeWrite?.(evt);
+    const { _value: oldValue, _watchable } = this;
+    const payload = { value: this._value, newValue };
+    this._eventBus?.emit("beforesetstate", payload);
 
-    if (evt.newValue !== oldValue) {
-      this._value = evt.newValue;
-      if (watchers?.size) {
-        mergeCallbacks(Array.from(watchers.values()), null, {
+    if (payload.newValue !== oldValue) {
+      this._value = payload.newValue;
+      if (_watchable) {
+        this._eventBus?.emit("setstate", {
           value: this._value,
           oldValue,
-        })();
+        });
       }
-      this._hooks?.onBeforeWrite?.({
-        type: "afterwrite",
+      this._eventBus?.emit("aftersetstate", {
         value: this._value,
         oldValue,
       });
@@ -55,20 +41,18 @@ export default class State {
     return true;
   }
   subscribe(cb) {
-    const { _watchers: watchers } = this;
-    if (watchers) {
-      const evt = {
-        type: "beforesubscribe",
+    if (this._watchable) {
+      const payload = {
         callback: cb,
       };
-      this._hooks?.onBeforeSubscribe?.(evt);
-      const unsubscribe = () => watchers.delete(evt.callback);
-      watchers.add(evt.callback);
-      this._hooks?.onAfterSubscribe?.({
-        type: "aftersubscribe",
-        unsubscribe,
-      });
-      return unsubscribe;
+      this._eventBus?.emit("beforesubscribe", payload);
+      if (isFunction(payload.callback)) {
+        const unsubscribe = this._eventBus.on("setstate", (e) =>
+          payload.callback(e.payload)
+        );
+        this._eventBus?.emit("aftersubscribe", unsubscribe);
+        return unsubscribe;
+      }
     }
     return () => {};
   }

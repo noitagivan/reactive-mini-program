@@ -10,12 +10,12 @@ class ProtectedObjectSignal extends ObjectSignal {}
 class NestedObjectSignal extends ObjectSignal {}
 class ValueRefSignal extends NestedObjectSignal {}
 
-export const isObjectSignal = (siganl) =>
-  isNonNullObject(siganl) && siganl instanceof ObjectSignal;
-export const isNestedObjectSignal = (siganl) =>
-  isNonNullObject(siganl) && siganl instanceof NestedObjectSignal;
-export const isValueRefSignal = (siganl) =>
-  isNonNullObject(siganl) && siganl instanceof ValueRefSignal;
+export const isObjectSignal = (signal) =>
+  isNonNullObject(signal) && signal instanceof ObjectSignal;
+export const isNestedObjectSignal = (signal) =>
+  isNonNullObject(signal) && signal instanceof NestedObjectSignal;
+export const isValueRefSignal = (signal) =>
+  isNonNullObject(signal) && signal instanceof ValueRefSignal;
 
 /**
  * TODO

@@ -1,4 +1,5 @@
 import { isSignal, isValueRefSignal } from "../state/index";
+import { protectedSignal } from "../state/signal";
 import {
   isArray,
   isConstructor,
@@ -7,9 +8,9 @@ import {
   isNonNullObject,
   onceInvokable,
 } from "../utils/index";
-import { invokeDefinedComponentMethod, invokeDefinedPageMethod } from "./main";
 
 export default class SetupContex {
+  runtime = null;
   instance = null;
   isSetupIdle = true;
   isPage = false;
@@ -31,6 +32,21 @@ export default class SetupContex {
     if (this.isSetupIdle)
       throw new Error(`cannot ${action} without setup context`);
   }
+  exposeDefiners(scope) {
+    const definers = {
+      provide: this.setProvidedData.bind(this, scope),
+    };
+    if (this.isPage) {
+    } else if (this.isComponent) {
+      definers.defineProps = onceInvokable(
+        this.defineProps.bind(this, scope),
+        "cannot define properties more than once for a component"
+      );
+      definers.observe = this.addObserver.bind(this, scope);
+      definers.inject = this.injectProvidedData.bind(this, scope);
+    }
+    return Object.freeze(definers);
+  }
   exposeContext(scope) {
     const ctx = {
       $this: this.instance || null,
@@ -42,22 +58,18 @@ export default class SetupContex {
     if (this.isComponent) {
       ctx.emit =
         scope?.instance.triggerEvent.bind(scope.instance) || (() => {});
-      ctx.plainProps = scope ? () => scope.context.getSetupProps() : () => ({});
+      ctx.$props = scope
+        ? () => ({ ...(scope.context.getSetupProps() || {}) })
+        : () => ({});
     }
     this.isSetupIdle = false;
     return Object.freeze(ctx);
   }
-  exposeDefiners(scope) {
-    const definers = {};
-    if (this.isPage) {
-    } else if (this.isComponent) {
-      definers.defineProps = onceInvokable(
-        this.defineProps.bind(this, scope),
-        "cannot define properties more than once for a component"
-      );
-      definers.observe = this.addObserver.bind(this, scope);
-    }
-    return Object.freeze(definers);
+
+  setProvidedData(scope, key, value) {}
+  injectProvidedData(scope, key, defaultValue) {
+    const [signal] = protectedSignal(defaultValue);
+    return signal;
   }
 
   /**
@@ -156,13 +168,14 @@ export default class SetupContex {
         if (isSignal(property)) {
           data[name] = property();
         } else {
+          const runtime = this.runtime;
           if (this.isPage) {
             methods[name] = function (...args) {
-              return invokeDefinedPageMethod(this, name, ...args);
+              return invokeDefinedPageMethod(runtime, this, name, ...args);
             };
           } else if (this.isComponent) {
             methods[name] = function (...args) {
-              return invokeDefinedComponentMethod(this, name, ...args);
+              return invokeDefinedComponentMethod(runtime, this, name, ...args);
             };
           }
         }
@@ -181,6 +194,7 @@ export default class SetupContex {
     this.setupRecords = {
       lifetimes: {},
       pageHooks: {},
+      pageProvidedDataSignals: {},
       componentProps: {},
       componentObservers: {},
     };
@@ -188,4 +202,19 @@ export default class SetupContex {
     this.instance = null;
     return Object.assign(this, configs);
   }
+}
+
+function invokeDefinedPageMethod(runtime, instance, methodName, ...args) {
+  const pageId = instance?.getPageId();
+  if (pageId) {
+    return runtime
+      .getPageScope(pageId)
+      ?.context.invokeMethod(methodName, ...args);
+  }
+}
+
+function invokeDefinedComponentMethod(runtime, component, methodName, ...args) {
+  return runtime
+    .getComponentScope(component)
+    ?.context.invokeMethod(methodName, ...args);
 }

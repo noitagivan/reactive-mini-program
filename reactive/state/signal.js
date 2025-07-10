@@ -60,28 +60,28 @@ class Signal {
     const watchable = !isRunInSilentScope();
     const state = new State(value, {
       watchable,
-      onRead: (e) =>
+      onGet: ({ payload }) =>
         CONTEXT.getTopWatchingScope()?.track({
           signal,
           type: "track",
-          value: e.value,
+          value: payload.value,
         }),
-      onBeforeWrite(e) {
+      onBeforeSet({ payload }) {
         const scope = CONTEXT.getTopWatchingScope();
         if (scope) {
           if (scope.isTrackForCompute) {
-            e.newValue = e.value;
+            payload.newValue = payload.value;
             throw new Error("cannot update state in computed scope");
           }
           if (scope.hasTracked(this.get)) {
-            e.newValue = e.value;
+            payload.newValue = payload.value;
             throw new Error("cannot update state in circular dependency scope");
           }
           meta[SignalEmitters].add(scope);
         }
       },
-      onAfterSubscribe(e) {
-        onScopeDispose(e.unsubscribe);
+      onAfterSubscribe({ payload }) {
+        onScopeDispose(payload);
       },
     });
     const meta = {
@@ -115,10 +115,11 @@ export function useSignal(value) {
   return [signal, (value) => (signal[SignalSource].value = value)];
 }
 export function subscribeSignal(signalOrRef, handle) {
-  if (isRunInSilentScope()) return () => {};
-  const signal = CONTEXT.getSignal(signalOrRef);
-  if (isWatchable(signal)) {
-    return signal[SignalSource].subscribe(handle);
+  if (!isRunInSilentScope() && isFunction(handle)) {
+    const signal = CONTEXT.getSignal(signalOrRef);
+    if (isWatchable(signal)) {
+      return signal[SignalSource].subscribe((payload) => handle(payload));
+    }
   }
   return () => {};
 }
@@ -191,10 +192,10 @@ export function ref2Signal(target, signal) {
   return false;
 }
 
-export function protectedSignal(signal) {
-  const [sgnl, set] = useSignal(signal);
-  sgnl[ProtectedSignal] = true;
-  return [sgnl, set];
+export function protectedSignal(target) {
+  const [signal, set] = useSignal(target);
+  signal[ProtectedSignal] = true;
+  return [signal, set];
 }
 
 export function computedSignal(

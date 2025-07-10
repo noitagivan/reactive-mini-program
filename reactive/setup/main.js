@@ -21,9 +21,14 @@ function setupPage(options) {
     CONTEXT.runSetup(setup, CONTEXT.optionsSetupContext.reset({ isPage: true }))
   );
   const { data, methods } = ctx.initDataAndMethods(options);
+  console.log(
+    "providedData",
+    ctx.providedData,
+    ctx.setupRecords.pageProvidedDataSignals
+  );
   ctx.reset();
 
-  Page({
+  const res = Page({
     ...methods,
     data,
     onLoad(opts) {
@@ -41,6 +46,7 @@ function setupPage(options) {
       this.onrouteDone = ctx.setLifeTimeCallback("routeDone", onrouteDone);
       ctx.setLifeTimeCallback("load", onLoad);
       ctx.setLifeTimeCallback("unload", onUnload);
+      console.log("providedData", ctx.providedData);
       scope.attachTo(null, opts);
     },
     onUnload() {
@@ -50,6 +56,8 @@ function setupPage(options) {
       CONTEXT.setPageScope(pageId, null);
     },
   });
+
+  console.log("provided", res);
 }
 function setupComponent(options) {
   const { setup, lifetimes, pageLifetimes } = options;
@@ -120,20 +128,4 @@ export function definePage(setup, options) {
 }
 export function defineComponent(setup, options) {
   setupComponent(formatOptions(setup, options));
-}
-
-export function invokeDefinedPageMethod(instance, methodName, ...args) {
-  const pageId = instance?.getPageId();
-  if (pageId) {
-    return CONTEXT.getPageScope(pageId)?.context.invokeMethod(
-      methodName,
-      ...args
-    );
-  }
-}
-export function invokeDefinedComponentMethod(component, methodName, ...args) {
-  return CONTEXT.getComponentScope(component)?.context.invokeMethod(
-    methodName,
-    ...args
-  );
 }

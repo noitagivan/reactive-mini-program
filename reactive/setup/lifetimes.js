@@ -174,7 +174,7 @@ export function onComponentError(listener) {
  * @param { () => void } listener 生命周期回调函数
  */
 export function onMounted(listener) {
-  useCurrentSettingUpInstanceScope()?.onAttached(listener);
+  useCurrentSettingUpInstanceScope()?.onMounted(listener);
 }
 
 /**

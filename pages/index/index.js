@@ -14,10 +14,13 @@ const defaultAvatarUrl =
 
 const [globalCount, updareGlobalCount] = useSignal(0);
 
-definePage(({}, context) => {
+definePage(({ provide }, context) => {
   useWatches();
   const count = useCounter();
   const motto = computed(() => `Hello World ${count()}`);
+
+  provide("page", context.$this?.__route__);
+  provide("motto", motto);
 
   watchEffect(() => {
     console.log("globalCount", globalCount());
