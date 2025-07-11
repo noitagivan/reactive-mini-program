@@ -52,6 +52,7 @@ function setupPage(options) {
   });
 }
 function setupComponent(options) {
+  console.log("setupComponent options observers", options);
   const { setup, lifetimes, pageLifetimes } = options;
   const ctx = runInSilentScope(() =>
     CONTEXT.runSetup(

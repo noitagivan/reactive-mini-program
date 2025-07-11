@@ -1,5 +1,5 @@
 import { debounceMicrotask, EventBus } from "../utils/index";
-import { subscribeSignal } from "./signal";
+import { subscribeStateOfSignal } from "./signal";
 
 export default class TrackingScope {
   static get emptyWatchHandle() {
@@ -66,7 +66,7 @@ export default class TrackingScope {
   track({ signal, value }) {
     const { trackedSignals, eventBus } = this;
     if (this.canTrack(signal)) {
-      trackedSignals.set(signal, subscribeSignal(signal, this.effect));
+      trackedSignals.set(signal, subscribeStateOfSignal(signal, this.effect));
     }
     eventBus.emit("track", { signal, value });
   }

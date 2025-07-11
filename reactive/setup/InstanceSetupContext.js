@@ -2,7 +2,7 @@ import { protectedObjectSignal } from "../state/ObjectSignal";
 import {
   isSignal,
   isWatchable,
-  subscribeSignal,
+  subscribeStateOfSignal,
   isNestedObjectSignal,
   isObjectSignal,
   isValueRefSignal,
@@ -12,6 +12,11 @@ import { emitSignal, protectedSignal, useSignal } from "../state/signal";
 import { isFunction, isNonEmptyString, mergeCallbacks } from "../utils/index";
 import SetupContex from "./SetupContex";
 
+function syncSignal(signalOrRef, value) {
+  if (isValueRefSignal(signalOrRef)) signalOrRef.value = value;
+  else if (isNestedObjectSignal(signalOrRef)) Object.assign(signalOrRef, value);
+  else emitSignal(signalOrRef, value);
+}
 export default class InstanceSetupContext extends SetupContex {
   setupProps = {
     defined: false,
@@ -31,7 +36,7 @@ export default class InstanceSetupContext extends SetupContex {
       this.providedData.set(key, { value });
       if (this.isPage) {
         if (isWatchable(value)) {
-          subscribeSignal(value, (payload) =>
+          subscribeStateOfSignal(value, (payload) =>
             scope.broadcastPageProvidedData(key, payload.value)
           );
           scope.broadcastPageProvidedData(key, value());
@@ -119,12 +124,6 @@ export default class InstanceSetupContext extends SetupContex {
   };
 
   bindSignalsAndMethods() {
-    /**
-     * TODO
-     * 由于小程序提供的 setData 粒度很细，所以这里建议使用 observer 来维护data和signal的数据同步
-     * 如维护 props 状态同步一样
-     * 而且，可以相比于劫持 setData ，使用 observer 似乎更安全
-     */
     this.isSetupIdle = true;
     let isSyncing = false;
     const { instance, setupReturns, methods } = this;
@@ -137,7 +136,7 @@ export default class InstanceSetupContext extends SetupContex {
     const bind = (name, signal) => {
       signals[name] = useSignal(signal);
       unbinds.push(
-        subscribeSignal(signal, (payload) =>
+        subscribeStateOfSignal(signal, (payload) =>
           updateData(
             name,
             isValueRefSignal(signal) ? payload.value.value : payload.value
@@ -156,21 +155,20 @@ export default class InstanceSetupContext extends SetupContex {
       instance.setData = (data) => {
         if (data && typeof data === "object") {
           originSetData(data);
-          isSyncing = true;
-          Object.entries(data).forEach(([key, val]) => {
-            if (signals[key]) {
-              if (isValueRefSignal(signals[key])) signals[key].value = val;
-              else if (isNestedObjectSignal(signals[key]))
-                Object.assign(signals[key], val);
-              else emitSignal(signals[key], val);
-            }
-            if (signals[key]) {
-              emitSignal(signals[key], val);
-            } else if (signals[key]) {
-              emitSignal(signals[key], val);
-            }
-          });
-          isSyncing = false;
+          try {
+            isSyncing = true;
+            Object.entries(data).forEach(([key, val]) => {
+              const parts = key.split(key);
+              if (signals[key]) syncSignal(signals[key], val);
+              else if (signals[parts[0]]) {
+                syncSignal(signals[parts[0]], instance.data[signals[parts[0]]]);
+              }
+            });
+            isSyncing = false;
+          } catch (error) {
+            isSyncing = false;
+            throw error;
+          }
         }
       };
     }

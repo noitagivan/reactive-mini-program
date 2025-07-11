@@ -71,6 +71,18 @@ defineComponent({
       console.log("defineComponent->observe(propB)", b);
     });
 
+    // observe("aaaa", (v) => {
+    //   console.log("observers aaaa", v);
+    // });
+
+    // observe("aaaa.bbbb", (v) => {
+    //   console.log("observers aaaa.bbbb", v);
+    // });
+
+    // observe("aaaa.bbbb.cccc", (v) => {
+    //   console.log("observers aaaa.bbbb.cccc", v);
+    // });
+
     useSchedule(() => {
       setButtonName("Clickable");
       buttonName2.value = "Clickable2";
@@ -86,12 +98,40 @@ defineComponent({
       onChildMount,
     };
   },
+  data: {
+    aaaa: {
+      bbbb: {
+        cccc: "cccc",
+      },
+    },
+  },
   methods: {
     onClick1(e) {
-      console.log("methods onClick1", e, this);
+      console.log("observers methods onClick1", e, this);
+      this.setData({
+        "aaaa.bbbb.cccc": "dddd",
+      });
+      this.setData({
+        aaaa: {
+          bbbb: {
+            cccc: "dddd",
+          },
+        },
+      });
     },
     onClick2(e) {
       console.log("methods onClick2", e, this);
+    },
+  },
+  observers: {
+    aaaa(v) {
+      console.log("observers aaaa", v);
+    },
+    "aaaa.bbbb"(v) {
+      console.log("observers aaaa.bbbb", v);
+    },
+    "aaaa.bbbb.cccc"(v) {
+      console.log("observers aaaa.bbbb.cccc", v);
     },
   },
 });

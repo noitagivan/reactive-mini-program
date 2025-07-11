@@ -114,7 +114,7 @@ export function useSignal(value) {
   if (signal[ProtectedSignal]) return [signal, null];
   return [signal, (value) => (signal[SignalSource].value = value)];
 }
-export function subscribeSignal(signalOrRef, handle) {
+export function subscribeStateOfSignal(signalOrRef, handle) {
   if (!isRunInSilentScope() && isFunction(handle)) {
     const signal = CONTEXT.getSignal(signalOrRef);
     if (isWatchable(signal)) {
@@ -193,9 +193,9 @@ export function ref2Signal(target, signal) {
 }
 
 export function protectedSignal(target) {
-  const [signal, set] = useSignal(target);
+  const [signal, setter] = useSignal(target);
   signal[ProtectedSignal] = true;
-  return [signal, set];
+  return [signal, setter];
 }
 
 export function computedSignal(

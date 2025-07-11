@@ -23,5 +23,5 @@ export {
   watchEffect,
   computedSignal,
   computedSignal as computed,
-  subscribeSignal,
+  subscribeStateOfSignal,
 } from "./signal";

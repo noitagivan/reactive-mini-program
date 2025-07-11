@@ -1,7 +1,7 @@
 import {
   createEffectScope,
   isWatchable,
-  subscribeSignal,
+  subscribeStateOfSignal,
 } from "../state/index";
 import { EventBus } from "../utils/index";
 import InstanceSetupContext from "./InstanceSetupContext";
@@ -73,7 +73,7 @@ class InstanceScope {
     if (data) {
       if (isWatchable(data.value)) {
         this.onDispose(
-          subscribeSignal(data.value, ({ value }) => setter(value))
+          subscribeStateOfSignal(data.value, ({ value }) => setter(value))
         );
       } else setter(data.value);
     } else this.listenPageProvidedData(key, setter);
