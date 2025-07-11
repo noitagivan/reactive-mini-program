@@ -84,8 +84,8 @@ defineComponent({
       { immediate: true }
     );
 
-    observe(["propB"], (b) => {
-      console.log("defineComponent->observe(propB)", b);
+    observe([page, "propB", motto], (p, b, m) => {
+      console.log("defineComponent->observe(page, propB, motto)", p, b, m);
     });
 
     observe("aaaa", (v) => {

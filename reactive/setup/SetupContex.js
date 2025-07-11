@@ -1,13 +1,13 @@
 import { isSignal, isValueRefSignal } from "../state/index";
-import { protectedSignal } from "../state/signal";
+import { protectedSignal, watch } from "../state/signal";
 import {
-  isArray,
   isConstructor,
   isFunction,
   isNonEmptyString,
   isNonNullObject,
   onceInvokable,
 } from "../utils/index";
+import { formatObserveSource, createMixObserver } from "./observe";
 
 export default class SetupContex {
   runtime = null;
@@ -133,26 +133,35 @@ export default class SetupContex {
    * @returns
    */
   addObserver(scope, src, observer) {
-    this.check("define observers");
     if (isFunction(observer)) {
-      src = isNonEmptyString(src)
-        ? src
-        : isArray(src)
-        ? src.filter(isNonEmptyString).join(",")
-        : "";
-      if (src) {
-        const { componentObservers } = this.setupRecords;
-        componentObservers[src] = componentObservers[src] || [];
-        if (scope) {
-          const index = componentObservers[src].length;
-          componentObservers[src].push(observer);
-          return () => this.removeObserver(src, index);
+      const { componentObservers } = this.setupRecords;
+      const { key, signals, indexesMap } = formatObserveSource(src, scope);
+      if (key) componentObservers[key] = componentObservers[key] || [];
+      if (scope) {
+        if (key) {
+          const index = componentObservers[key].length;
+          if (signals.length) {
+            // 组合字符串和signals的
+            // 难点在于回调值的按序合并
+            const { instanceDataObserver, unwatchSignals } = createMixObserver(
+              src,
+              observer,
+              { scope, signals, indexesMap }
+            );
+            componentObservers[key].push(instanceDataObserver);
+            return () => (
+              unwatchSignals(), this.removeInstanceDataObserver(key, index)
+            );
+          }
+          componentObservers[key].push(observer);
+          return () => this.removeInstanceDataObserver(key, index);
         }
+        if (signals.length) return watch(signals, observer).stop;
       }
     }
     return () => false;
   }
-  removeObserver(src, index) {
+  removeInstanceDataObserver(src, index) {
     const { componentObservers } = this.setupRecords;
     if (componentObservers?.[src]) {
       return delete componentObservers[src][index];

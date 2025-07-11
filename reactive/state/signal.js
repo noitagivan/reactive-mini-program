@@ -130,8 +130,10 @@ export function emitSignal(signal, newValue) {
   }
   return false;
 }
-export function captureSignal(signalOrRef) {
-  return CONTEXT.getSignal(signalOrRef)?.();
+export function captureSignal(signalOrRef, slient = false) {
+  const signal = CONTEXT.getSignal(signalOrRef);
+  if (slient) return signal?.[SignalSource]._value;
+  return signal?.();
 }
 
 export function watch(
