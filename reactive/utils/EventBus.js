@@ -30,6 +30,15 @@ export default class EventBus {
     return () => {};
   }
 
+  // 只监听一次
+  once(eventName, handler) {
+    const onceWrapper = (...args) => {
+      handler(...args);
+      this.off(eventName, onceWrapper);
+    };
+    this.on(eventName, onceWrapper);
+  }
+
   /**
    * 触发事件
    * @param eventType 事件名
