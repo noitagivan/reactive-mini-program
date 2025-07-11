@@ -4,12 +4,12 @@ import {
   isWatchable,
   subscribeStateOfSignal,
   isObjectSignal,
-  isValueRefSignal,
   computed,
 } from "../state/index";
-import { protectedSignal, useSignal } from "../state/signal";
+import { protectedSignal } from "../state/signal";
 import { isFunction, isNonEmptyString, mergeCallbacks } from "../utils/index";
 import SetupContex from "./SetupContex";
+import { createDataBinder } from "./util";
 
 export default class InstanceSetupContext extends SetupContex {
   setupProps = {
@@ -119,32 +119,9 @@ export default class InstanceSetupContext extends SetupContex {
 
   bindSignalsAndMethods() {
     this.isSetupIdle = true;
-    let isSyncing = false;
     const { instance, setupReturns, methods } = this;
-    const signals = {};
-    const unbinds = [];
 
-    const wxSetData = instance.setData.bind(instance);
-    const updateData = (key, val) => isSyncing || wxSetData({ [key]: val });
-    const bind = (name, signal) => {
-      const isValueRef = isValueRefSignal(signal);
-      signals[name] = useSignal(signal);
-      unbinds.push(
-        subscribeStateOfSignal(signal, (payload) =>
-          updateData(name, isValueRef ? payload.value.value : payload.value)
-        )
-      );
-    };
-    const sync = (dataKey) => {
-      try {
-        isSyncing = true;
-        signals[dataKey]?.[1]?.(instance.data[dataKey]);
-      } catch (error) {
-        throw error;
-      } finally {
-        isSyncing = false;
-      }
-    };
+    const { setData, bind, unbinds } = createDataBinder(instance);
     Object.entries(setupReturns).forEach(([name, property]) => {
       if (isFunction(property)) {
         if (isSignal(property)) {
@@ -153,13 +130,7 @@ export default class InstanceSetupContext extends SetupContex {
       } else if (isObjectSignal(property)) bind(name, property);
     });
     if (unbinds.length) {
-      instance.setData = (data) => {
-        if (data && typeof data === "object") {
-          wxSetData(data, () =>
-            Object.keys(data).forEach((key) => sync(key.split(".")[0]))
-          );
-        }
-      };
+      instance.setData = setData;
     }
     return unbinds;
   }

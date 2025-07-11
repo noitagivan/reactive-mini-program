@@ -7,7 +7,7 @@ import {
   isNonNullObject,
   onceInvokable,
 } from "../utils/index";
-import { formatObserveSource, createMixObserver } from "./observe";
+import { formatObserveSource, createMixObserver } from "./util";
 
 export default class SetupContex {
   runtime = null;
