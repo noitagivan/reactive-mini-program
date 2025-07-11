@@ -23,11 +23,16 @@ defineComponent({
         type: Number,
       },
     });
+    const page = inject("page");
+    const motto = inject("motto", "replace1");
+    const [aaaa, setAaaa] = useSignal({
+      bbbb: {
+        cccc: "cccc",
+      },
+    });
     const [buttonName, setButtonName] = useSignal("Button");
     const buttonName2 = ref("Button2");
 
-    const page = inject("page");
-    const motto = inject("motto", "replace1");
     provide("propA", () => props.propA);
 
     console.log(
@@ -38,6 +43,18 @@ defineComponent({
       "buttonName:",
       buttonName
     );
+
+    watch(
+      aaaa,
+      (v) => {
+        console.log("observers watch aaaa", v);
+      },
+      { immediate: true }
+    );
+
+    watchEffect(() => {
+      console.log("observers watchEffect aaaa().bbbb", aaaa().bbbb);
+    });
 
     watch(
       [page, motto],
@@ -71,17 +88,17 @@ defineComponent({
       console.log("defineComponent->observe(propB)", b);
     });
 
-    // observe("aaaa", (v) => {
-    //   console.log("observers aaaa", v);
-    // });
+    observe("aaaa", (v) => {
+      console.log("observers aaaa", v);
+    });
 
-    // observe("aaaa.bbbb", (v) => {
-    //   console.log("observers aaaa.bbbb", v);
-    // });
+    observe("aaaa.bbbb", (v) => {
+      console.log("observers aaaa.bbbb", v);
+    });
 
-    // observe("aaaa.bbbb.cccc", (v) => {
-    //   console.log("observers aaaa.bbbb.cccc", v);
-    // });
+    observe("aaaa.bbbb.cccc", (v) => {
+      console.log("observers aaaa.bbbb.cccc", v);
+    });
 
     useSchedule(() => {
       setButtonName("Clickable");
@@ -91,6 +108,7 @@ defineComponent({
     const onChildMount = (e) => console.log("onChildMount", e.detail);
 
     return {
+      aaaa,
       buttonName: buttonName2,
       onClick2(e) {
         console.log("setup onClick2", e, this);
@@ -98,26 +116,26 @@ defineComponent({
       onChildMount,
     };
   },
-  data: {
-    aaaa: {
-      bbbb: {
-        cccc: "cccc",
-      },
-    },
-  },
+  // data: {
+  //   aaaa: {
+  //     bbbb: {
+  //       cccc: "cccc",
+  //     },
+  //   },
+  // },
   methods: {
     onClick1(e) {
       console.log("observers methods onClick1", e, this);
       this.setData({
         "aaaa.bbbb.cccc": "dddd",
       });
-      this.setData({
-        aaaa: {
-          bbbb: {
-            cccc: "dddd",
-          },
-        },
-      });
+      // this.setData({
+      //   aaaa: {
+      //     bbbb: {
+      //       cccc: "dddd",
+      //     },
+      //   },
+      // });
     },
     onClick2(e) {
       console.log("methods onClick2", e, this);

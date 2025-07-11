@@ -3,20 +3,14 @@ import {
   isSignal,
   isWatchable,
   subscribeStateOfSignal,
-  isNestedObjectSignal,
   isObjectSignal,
   isValueRefSignal,
   computed,
 } from "../state/index";
-import { emitSignal, protectedSignal, useSignal } from "../state/signal";
+import { protectedSignal, useSignal } from "../state/signal";
 import { isFunction, isNonEmptyString, mergeCallbacks } from "../utils/index";
 import SetupContex from "./SetupContex";
 
-function syncSignal(signalOrRef, value) {
-  if (isValueRefSignal(signalOrRef)) signalOrRef.value = value;
-  else if (isNestedObjectSignal(signalOrRef)) Object.assign(signalOrRef, value);
-  else emitSignal(signalOrRef, value);
-}
 export default class InstanceSetupContext extends SetupContex {
   setupProps = {
     defined: false,
@@ -157,12 +151,9 @@ export default class InstanceSetupContext extends SetupContex {
           originSetData(data);
           try {
             isSyncing = true;
-            Object.entries(data).forEach(([key, val]) => {
-              const parts = key.split(key);
-              if (signals[key]) syncSignal(signals[key], val);
-              else if (signals[parts[0]]) {
-                syncSignal(signals[parts[0]], instance.data[signals[parts[0]]]);
-              }
+            Object.keys(data).forEach((key) => {
+              const dataKey = key.split(".")[0];
+              signals[dataKey]?.[1]?.(instance.data[dataKey]);
             });
             isSyncing = false;
           } catch (error) {
