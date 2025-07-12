@@ -1,0 +1,19 @@
+{
+  "name": "reactive-mp",
+  "version": "1.0.0",
+  "description": "Reactive Mini Program",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/noitagivan/reactive-mini-program.git"
+  },
+  "author": "Ivan, Yang Chi",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/noitagivan/reactive-mini-program/issues"
+  },
+  "homepage": "https://github.com/noitagivan/reactive-mini-program#readme"
+}

@@ -7,7 +7,7 @@ import {
   useSignal,
   watch,
   watchEffect,
-} from "../../reactive/index";
+} from "../../lib/index";
 
 defineComponent({
   setup({ $props, provide, inject, defineProps, observe }) {

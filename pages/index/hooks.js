@@ -6,7 +6,7 @@ import {
   computed,
   onUnmounted,
   onMounted,
-} from "../../reactive/index";
+} from "../../lib/index";
 
 export const useCounter = (init = 1, step = 1) => {
   let timer;

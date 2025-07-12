@@ -3,7 +3,7 @@ import {
   onMounted,
   onPageScroll,
   watch,
-} from "../../reactive/index";
+} from "../../lib/index";
 
 defineComponent(({ $this, $emit, inject, onPageDataProvide }) => {
   // const motto = inject("motto", "replace2");

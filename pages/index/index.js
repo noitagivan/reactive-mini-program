@@ -6,7 +6,7 @@ import {
   definePage,
   useSchedule,
   onReady,
-} from "../../reactive/index";
+} from "../../lib/index";
 import { useCounter, useWatches } from "./hooks";
 
 const defaultAvatarUrl =
