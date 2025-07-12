@@ -32,6 +32,7 @@ defineComponent({
     const buttonName2 = ref("Button2");
 
     provide("propA", () => props.propA);
+    console.log("buttonName", buttonName);
 
     // watch(
     //   aaaa,
@@ -47,7 +48,7 @@ defineComponent({
 
     // watch(
     //   [page, motto],
-    //   (p, m) => {
+    //   ([p, m]) => {
     //     console.log("watch providedData com", p, m);
     //   },
     //   { immediate: true }

@@ -40,7 +40,7 @@ export const useWatches = () => {
 
   watch(
     [double],
-    (val) => {
+    ([val]) => {
       console.log("watch double", val);
       // setCount(val);
     },
@@ -49,7 +49,7 @@ export const useWatches = () => {
 
   // const { pause, resume } = watch(
   //   [count, double],
-  //   (c, d) => {
+  //   ([c, d]) => {
   //     console.log("watch count, double", c, d);
   //   },
   //   { immediate: true }
