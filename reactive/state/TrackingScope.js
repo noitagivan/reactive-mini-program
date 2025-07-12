@@ -11,6 +11,8 @@ export default class TrackingScope {
   }
 
   isRunning = false;
+  isTrackingSignal = false;
+  isOccurringEffect = false;
   isSync = false;
   paused = false;
   // handlers = {};
@@ -66,14 +68,18 @@ export default class TrackingScope {
   track({ signal, value }) {
     const { trackedSignals, eventBus } = this;
     if (this.canTrack(signal)) {
+      this.isTrackingSignal = true;
       trackedSignals.set(signal, subscribeStateOfSignal(signal, this.effect));
+      this.isTrackingSignal = false;
     }
     eventBus.emit("track", { signal, value });
   }
   effect({ signal, value }) {
     const { paused, eventBus } = this;
     if (paused) return;
+    this.isOccurringEffect = true;
     eventBus.emit("effect", { signal, value });
+    this.isOccurringEffect = true;
   }
   pause() {
     this.paused = true;

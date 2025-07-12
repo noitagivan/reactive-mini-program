@@ -3,7 +3,7 @@ import {
   isNonNullObject,
   isPositiveNumber,
 } from "../utils/index";
-import { onMounted, onUnmounted } from "../setup/lifetimes";
+import { onMounted, onUnmounted } from "./lifetimes-and-page-evens";
 
 /**
  *

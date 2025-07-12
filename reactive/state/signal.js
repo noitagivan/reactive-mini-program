@@ -1,6 +1,6 @@
 import { isArray, isFunction, isNonNullObject } from "../utils/index";
 import TrackingScope from "./TrackingScope";
-import { isRunInSilentScope, onScopeDispose } from "./SignalScope";
+import { isRunInEffectFreeScope, onScopeDispose } from "./SignalScope";
 import State from "./State";
 
 const SignalSource = Symbol("SignalSource");
@@ -57,7 +57,7 @@ class WatchingScope extends TrackingScope {
 
 class Signal {
   static create(value) {
-    const watchable = !isRunInSilentScope();
+    const watchable = !isRunInEffectFreeScope();
     const state = new State(value, {
       watchable,
       onGet: ({ payload }) =>
@@ -71,11 +71,13 @@ class Signal {
         if (scope) {
           if (scope.isTrackForCompute) {
             payload.newValue = payload.value;
-            throw new Error("cannot update state in computed scope");
+            throw new Error("cannot update state of signal in computed effect");
           }
           if (scope.hasTracked(this.get)) {
             payload.newValue = payload.value;
-            throw new Error("cannot update state in circular dependency scope");
+            throw new Error(
+              "cannot update state of signal in circular-dependency effect"
+            );
           }
           meta[SignalEmitters].add(scope);
         }
@@ -104,18 +106,25 @@ export const isWatchable = (source) =>
   isWatchableSignal(source) ||
   isWatchableSignal(CONTEXT.refererMap.get(source));
 export const isComputedSignal = (signal) => !!signal?.[ComputedSignal];
+const checkIsNotActInWatchingScope = (action) => {
+  const cause = CONTEXT.getTopWatchingScope();
+  if (cause) throw new Error(`cannot ${action} in effect`, { cause });
+};
 
 export function useSignal(value) {
-  if (CONTEXT.getTopWatchingScope()) {
-    console.log("defineProps", CONTEXT.getTopWatchingScope());
-    throw new Error("cannot define state in effect");
-  }
+  checkIsNotActInWatchingScope(`use signal`);
   const signal = CONTEXT.getSignal(value) || Signal.create(value);
   if (signal[ProtectedSignal]) return [signal, null];
   return [signal, (value) => (signal[SignalSource].value = value)];
 }
 export function subscribeStateOfSignal(signalOrRef, handle) {
-  if (!isRunInSilentScope() && isFunction(handle)) {
+  try {
+    checkIsNotActInWatchingScope(`subscribe signal`);
+  } catch (error) {
+    if (!error?.cause?.isTrackingSignal) throw error;
+  }
+
+  if (!isRunInEffectFreeScope() && isFunction(handle)) {
     const signal = CONTEXT.getSignal(signalOrRef);
     if (isWatchable(signal)) {
       return signal[SignalSource].subscribe((payload) => handle(payload));
@@ -141,14 +150,12 @@ export function watch(
   cb,
   { immediate = false, onTrack = null, onTrigger = null, once = false } = {}
 ) {
-  if (CONTEXT.getTopWatchingScope()) {
-    throw new Error("cannot watch state in effect");
-  }
+  checkIsNotActInWatchingScope(`watch signal`);
   if (isFunction(cb) === false) {
     console.warn("watch callback must be a function");
     return TrackingScope.emptyWatchHandle;
   }
-  if (isRunInSilentScope()) return TrackingScope.emptyWatchHandle;
+  if (isRunInEffectFreeScope()) return TrackingScope.emptyWatchHandle;
   signals = isWatchable(signals)
     ? [signals]
     : isArray(signals)
@@ -168,10 +175,8 @@ export function watch(
 }
 
 export function watchEffect(effect, { onTrack = null, onTrigger = null } = {}) {
-  if (CONTEXT.getTopWatchingScope()) {
-    throw new Error("cannot watch effect in effect");
-  }
-  if (isRunInSilentScope()) return TrackingScope.emptyWatchHandle;
+  checkIsNotActInWatchingScope(`watch effect`);
+  if (isRunInEffectFreeScope()) return TrackingScope.emptyWatchHandle;
   const scope = new WatchingScope(effect, { onTrack, onTrigger });
   scope.runEffect({});
   return scope.exposeHanlde();
@@ -186,7 +191,6 @@ export function ref2Signal(target, signal) {
     return false;
   }
   if (CONTEXT.refererMap.get(target)) return false;
-
   if (isSignal(signal)) {
     CONTEXT.refererMap.set(target, signal);
     return true;
@@ -195,6 +199,7 @@ export function ref2Signal(target, signal) {
 }
 
 export function protectedSignal(target) {
+  checkIsNotActInWatchingScope(`define signal properties`);
   const [signal, setter] = useSignal(target);
   signal[ProtectedSignal] = true;
   return [signal, setter];
@@ -204,9 +209,7 @@ export function computedSignal(
   getter,
   { onTrack = null, onTrigger = null } = {}
 ) {
-  if (CONTEXT.getTopWatchingScope()) {
-    throw new Error("cannot define computed signal in effect");
-  }
+  checkIsNotActInWatchingScope(`define computed signal`);
   if (!isFunction(getter)) {
     throw new Error("getter for computed signal must be a function");
   }

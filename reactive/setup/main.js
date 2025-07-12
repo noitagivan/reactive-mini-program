@@ -1,11 +1,10 @@
-import { runInSilentScope } from "../state/SignalScope";
+import { runInEffectFreeScope } from "../state/SignalScope";
 import createInstanceScope from "./InstanceScope";
 import RuntimeContext from "./RuntimeContext";
 import {
-  cLifetimes,
+  componentFullLifetimeNames,
+  componentPageLifetimeNames,
   formatOptions,
-  partialCLifetimes,
-  pLifetimes,
 } from "./util";
 
 const CONTEXT = new RuntimeContext();
@@ -14,65 +13,73 @@ export const useCurrentSettingUpInstanceScope = () =>
 export const useCurrentSetupContext = () => CONTEXT.exposeSetupContext();
 
 function setupPage(options) {
-  const { setup, onLoad, onReady, onUnload } = options;
-  const { onShow, onHide, onResize, onrouteDone } = options;
-
-  const ctx = runInSilentScope(() =>
+  const { setup, data: _data, observers: _observers, ..._methods } = options;
+  const ctx = runInEffectFreeScope(() =>
     CONTEXT.runSetup(setup, CONTEXT.optionsSetupContext.reset({ isPage: true }))
   );
-  const { data, methods } = ctx.initDataAndMethods(options);
+  const { data, methods } = ctx.getDataAndMethodsOptions(_data, _methods);
+  const observers = ctx.getObserversOption(_observers);
   ctx.reset();
 
-  Page({
-    ...methods,
+  // 用 Component 来创建 Page，
+  // 以获得更大的灵活性
+  Component({
     data,
-    onLoad(opts) {
-      const pageId = this.getPageId();
-      // console.log("lifetimes/onLoad", pageId, this);
-      const scope = createInstanceScope(this, { isPage: true });
-      const ctx = scope.run((ctx) => CONTEXT.runSetup(setup, ctx), {
-        setScope: (scp) => CONTEXT.setPageScope(pageId, scp),
-        resetScope: () => CONTEXT.resetInstanceScope(),
-      });
-      this.onReady = ctx.setLifeTimeCallback("ready", onReady);
-      this.onShow = ctx.setLifeTimeCallback("show", onShow);
-      this.onHide = ctx.setLifeTimeCallback("hide", onHide);
-      this.onResize = ctx.setLifeTimeCallback("pageresize", onResize);
-      this.onrouteDone = ctx.setLifeTimeCallback("routeDone", onrouteDone);
-      ctx.setLifeTimeCallback("load", onLoad);
-      ctx.setLifeTimeCallback("unload", onUnload);
-      scope.attachTo(null, opts);
-    },
-    onUnload() {
-      const pageId = this.getPageId();
-      // console.log("onUnload", pageId);
-      CONTEXT.getPageScope(pageId)?.stop();
-      CONTEXT.setPageScope(pageId, null);
+    observers,
+    methods: {
+      ...methods,
+      onLoad(opts) {
+        const pageId = this.getPageId();
+        console.log("lifetimes/onLoad", pageId, this, opts);
+        const scope = createInstanceScope(this, { isPage: true });
+        scope.run(
+          (ctx) => {
+            CONTEXT.runSetup(setup, ctx);
+            ctx.createPageInstanceLifeTimeHandles(scope, options);
+          },
+          {
+            setScope: (scp) => CONTEXT.setPageScope(pageId, scp),
+            resetScope: () => CONTEXT.resetInstanceScope(),
+          }
+        );
+        scope.attachTo(null, opts);
+      },
+      onUnload() {
+        const pageId = this.getPageId();
+        // console.log("onUnload", pageId);
+        CONTEXT.getPageScope(pageId)?.stop();
+        CONTEXT.setPageScope(pageId, null);
+      },
+      onShareAppMessage() {
+        CONTEXT.getPageScope(pageId)?.stop();
+        console.log("page.onShareAppMessage");
+        return {
+          title: "转发标题A",
+          imageUrl: "", // 图片 URL
+        };
+      },
     },
   });
 }
+
 function setupComponent(options) {
   console.log("setupComponent options observers", options);
-  const { setup, lifetimes, pageLifetimes } = options;
-  const ctx = runInSilentScope(() =>
+  const {
+    setup,
+    data: _data,
+    observers: _observers,
+    methods: _methods,
+  } = options;
+  const ctx = runInEffectFreeScope(() =>
     CONTEXT.runSetup(
       setup,
       CONTEXT.optionsSetupContext.reset({ isComponent: true })
     )
   );
-  const { data, methods } = ctx.initDataAndMethods(options);
-  const { componentProps, componentObservers } = ctx.setupRecords;
-  const {
-    names: propNames,
-    option: propsOption,
-    values: defaultProps,
-  } = componentProps;
-  const properties = propsOption || options.properties || {};
-  const observers = CONTEXT.settleObserversOption(
-    propNames,
-    componentObservers,
-    options.observers
-  );
+  const { properties, values: defaultProps } = ctx.getPropertiesOption(options);
+  const { data, methods } = ctx.getDataAndMethodsOptions(_data, _methods);
+  const observers = ctx.getObserversOption(_observers);
+  const { lifetimes, pageLifetimes } = ctx.getLifetimeOptions(options);
   ctx.reset();
 
   Component({
@@ -82,24 +89,34 @@ function setupComponent(options) {
     methods,
     observers,
     lifetimes: {
-      ...CONTEXT.createLifetimeHooks(partialCLifetimes),
+      ...lifetimes,
       created() {
-        const scope = createInstanceScope(this, {
+        createInstanceScope(this, {
           isComponent: true,
-        }).use({ props: defaultProps });
-        // console.log("lifetimes/created", scope.pageId, scope.getId());
-        const ctx = scope.run((ctx) => CONTEXT.runSetup(setup, ctx), {
-          setScope: (scp) => CONTEXT.setComponentScope(this, scp),
-          resetScope: () => CONTEXT.resetInstanceScope(),
-        });
-        cLifetimes.forEach((lifetime) => {
-          const optCbs = lifetimes?.[lifetime] || options[lifetime];
-          ctx.setLifeTimeCallback(lifetime, optCbs);
-        });
-        pLifetimes.forEach((lifetime) =>
-          ctx.setLifeTimeCallback(lifetime, pageLifetimes?.[lifetime])
-        );
-        ctx.invokeLifeTimeCallback("created");
+        })
+          .use({ props: defaultProps })
+          .run(
+            (ctx) => {
+              CONTEXT.runSetup(setup, ctx);
+              componentFullLifetimeNames.forEach((lifetime) =>
+                ctx.addLifetimeListener(
+                  lifetime,
+                  options.lifetimes?.[lifetime] || options[lifetime]
+                )
+              );
+              componentPageLifetimeNames.forEach((lifetime) =>
+                ctx.addLifetimeListener(
+                  lifetime,
+                  options.pageLifetimes?.[lifetime]
+                )
+              );
+            },
+            {
+              setScope: (scope) => CONTEXT.setComponentScope(this, scope),
+              resetScope: () => CONTEXT.resetInstanceScope(),
+            }
+          )
+          .distributeLifeTimeEvent("created");
       },
       attached() {
         console.log("lifetimes/attached", this.__wxExparserNodeId__, this);
@@ -112,7 +129,7 @@ function setupComponent(options) {
         CONTEXT.setComponentScope(this, null);
       },
     },
-    pageLifetimes: CONTEXT.createLifetimeHooks(pLifetimes),
+    pageLifetimes,
   });
 }
 

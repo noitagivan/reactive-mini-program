@@ -1,6 +1,5 @@
 {
   "usingComponents": {
-    "my-component": "/components/component/component",
-    "child-component": "/components/child/child"
+    "my-component": "/components/component/component"
   }
 }

@@ -61,15 +61,15 @@ class EffectScope extends SignalScope {
   }
 }
 
-CONTEXT.silentScope = new (class SilentScope extends SignalScope {
+CONTEXT.silentScope = new (class EffectFreeScope extends SignalScope {
   isSilent = true;
 })();
 
-export function runInSilentScope(fn) {
+export function runInEffectFreeScope(fn) {
   return CONTEXT.silentScope.run(fn);
 }
 
-export function isRunInSilentScope() {
+export function isRunInEffectFreeScope() {
   return CONTEXT.getCurrentScope()?.isSilent ? true : false;
 }
 

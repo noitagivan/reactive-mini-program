@@ -1,6 +1,7 @@
 import {
   defineComponent,
   isWatchable,
+  onShow,
   ref,
   useSchedule,
   useSignal,
@@ -104,6 +105,10 @@ defineComponent({
       setButtonName("Clickable");
       buttonName2.value = "Clickable2";
     }, 3000);
+
+    onShow(() => {
+      console.log("onShow");
+    });
 
     const onChildMount = (e) => console.log("onChildMount", e.detail);
 

@@ -1,7 +1,8 @@
 import { isFunction } from "../utils/index";
-import SetupContex from "./SetupContex";
+import OptionsSetupContext from "./setup-context/OptionsSetupContext";
+import SetupContex from "./setup-context/SetupContext";
 
-export default class GlobalContext {
+export default class {
   pageScopeMap = new Map();
   componentScopeMap = new WeakMap();
   instanceScope = null;
@@ -45,7 +46,6 @@ export default class GlobalContext {
       if (parent) return parent;
     }
   }
-
   exposeInstanceScope() {
     const formatScope = (scope) => {
       if (scope) {
@@ -58,10 +58,10 @@ export default class GlobalContext {
           getPageInstance: () => pageScope.instance,
           getParentScope: () => formatScope(parentScope),
           getPageScope: () => formatScope(pageScope),
-          onMounted: scope.onMounted.bind(scope),
-          offMounted: scope.offMounted.bind(scope),
-          onDispose: scope.onDispose.bind(scope),
-          offDispose: scope.offDispose.bind(scope),
+          onMounted: scope.addLifeTimeListener.bind(scope, "mounted"),
+          offMounted: scope.removeLifeTimeListener.bind(scope, "mounted"),
+          onDispose: scope.addLifeTimeListener.bind(scope, "dispose"),
+          offDispose: scope.removeLifeTimeListener.bind(scope, "dispose"),
         };
       }
       return null;
@@ -69,28 +69,31 @@ export default class GlobalContext {
     return formatScope(this.getInstanceScope());
   }
 
-  optionsSetupContext = new SetupContex();
+  optionsSetupContext = new OptionsSetupContext();
   setupContex = null;
   /**
    * @returns { SetupContex | null }
    */
   setSetupContext(ctx) {
-    ctx && (ctx.runtime = this);
     this.setupContex = ctx;
+    return ctx;
   }
   getSetupContex() {
     return this.setupContex;
   }
   exposeSetupContext() {
-    const context = this.getSetupContex();
+    const ctx = this.getSetupContex();
     const instanceScope = this.exposeInstanceScope();
-    if (context) {
-      const { isPage, isComponent, addLifetimeListener } = context;
+    if (ctx) {
+      const { isPage, isComponent } = ctx;
 
       return {
         isPage,
         isComponent,
-        addLifetimeListener: instanceScope ? addLifetimeListener : null,
+        observe: ctx.addDataAndSignalObserver.bind(ctx, instanceScope),
+        inject: ctx.injectProvidedData.bind(ctx, instanceScope),
+        on: ctx.addLifetimeListener.bind(ctx, instanceScope),
+        listen: ctx.addPageEventListener.bind(ctx, instanceScope),
         instanceScope,
       };
     }
@@ -99,54 +102,16 @@ export default class GlobalContext {
 
   /**
    * @param { Function } setup
-   * @param { SetupContex } context
+   * @param { SetupContex } ctx
    */
-  runSetup(setup, context) {
-    this.setSetupContext(context);
+  runSetup(setup, ctx) {
+    this.setSetupContext(ctx).runtime = this;
     if (isFunction(setup)) {
       const scope = this.getInstanceScope();
-      context.setupReturns =
-        setup(context.exposeDefiners(scope), context.exposeContext(scope)) ||
-        {};
+      ctx.setupReturns =
+        setup(ctx.exposeDefiners(scope), ctx.exposeContext(scope)) || {};
     }
     this.setSetupContext(null);
-    return context;
-  }
-
-  createLifetimeHooks(lifetimes) {
-    const ctx = this;
-    const hooks = {};
-    lifetimes.forEach((lifetime) => {
-      hooks[lifetime] = function () {
-        // console.log(`lifetimes/${lifetime}`, this.__wxExparserNodeId__);
-        ctx.getComponentScope(this)?.context.invokeLifeTimeCallback(lifetime);
-      };
-    });
-    return hooks;
-  }
-  settleObserversOption(propNames, setupCbs, optCbs) {
-    const runtime = this;
-    const cbs = { ...optCbs };
-    Object.keys(setupCbs).forEach((src) => {
-      cbs[src] = function (...values) {
-        runtime
-          .getComponentScope(this)
-          ?.context.invokeObservers(src, ...values);
-        optCbs?.[src]?.call(this, ...values);
-      };
-    });
-    if (propNames) {
-      const propsWatcherSource = propNames.join(",");
-      const sameSourceCallback = cbs[propsWatcherSource];
-      cbs[propsWatcherSource] = function (...values) {
-        runtime
-          .getComponentScope(this)
-          ?.context.syncSetupProps(
-            Object.fromEntries(propNames.map((prop, i) => [prop, values[i]]))
-          );
-        sameSourceCallback?.call(this, ...values);
-      };
-    }
-    return cbs;
+    return ctx;
   }
 }

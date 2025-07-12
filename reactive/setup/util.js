@@ -14,14 +14,41 @@ import {
 } from "../state/signal";
 import { isValueRefSignal } from "../state/index";
 
-export const partialCLifetimes = ["ready", "moved", "error"];
-export const cLifetimes = [
-  "created",
-  "attached",
-  "detached",
-  ...partialCLifetimes,
+export const componentCoreLifetimeNames = ["created", "attached", "detached"];
+export const componentFullLifetimeNames = [
+  ...componentCoreLifetimeNames,
+  "ready",
+  "moved",
+  "error",
 ];
-export const pLifetimes = ["show", "routeDone", "resize", "hide"];
+export const componentPageLifetimeNames = [
+  "show",
+  "hide",
+  "resize",
+  "routeDone",
+];
+export const pageLifetimeMap = {
+  load: ["onLoad", false],
+  show: ["onShow", true],
+  ready: ["onReady", true],
+  hide: ["onHide", true],
+  unload: ["onUnload", false],
+  resize: ["onResize", true],
+  routeDone: ["onRouteDone", true],
+};
+export const pageEventNames = [
+  "PullDownRefresh",
+  "ReachBottom",
+  "PageScroll",
+  "TabItemTap",
+];
+
+export const pageHookNames = [
+  "AddToFavorites",
+  "ShareAppMessage",
+  "ShareTimeline",
+  "SaveExitState",
+];
 
 export function formatOptions(setup, options) {
   if (isFunction(setup)) {
@@ -62,28 +89,34 @@ export function formatObserveSource(src, scope) {
 export function createMixObserver(
   src,
   observer,
-  { scope, signals, indexesMap }
+  { instance, key, signals, indexesMap }
 ) {
-  const instanceDataObserver = (...values) => {
-    observer(
+  const instanceDataObserver = ({ payload }) => {
+    observer.call(
+      instance,
       ...src.map((s) => {
         if (isWatchable(s)) return captureSignal(s, true);
-        if (isNonEmptyString(s)) return values[indexesMap.get(s)];
+        if (isNonEmptyString(s)) return payload[indexesMap.get(s)];
         return undefined;
       })
     );
   };
   const signalsObserver = (...values) => {
-    observer(
+    observer.call(
+      instance,
       ...src.map((s) => {
         if (isWatchable(s)) return values[indexesMap.get(s)];
-        if (isNonEmptyString(s)) return get(scope.instance.data, s);
+        if (isNonEmptyString(s)) return get(instance.data, s);
         return undefined;
       })
     );
   };
-  const unwatchSignals = watch(signals, signalsObserver).stop;
-  return { instanceDataObserver, unwatchSignals };
+  const unobserve = instance.eventBus.on(
+    `datachange/${key}`,
+    instanceDataObserver
+  );
+  const unwatch = watch(signals, signalsObserver).stop;
+  return () => (unobserve(), unwatch());
 }
 
 export function createDataBinder(instance) {

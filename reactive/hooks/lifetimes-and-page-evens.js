@@ -1,16 +1,16 @@
 import {
   useCurrentSettingUpInstanceScope,
   useCurrentSetupContext,
-} from "./main";
+} from "../setup/main";
 
 const addPageLifetimeListener = (lifetime, listener) => {
   const context = useCurrentSetupContext();
-  if (context.isPage) context.addLifetimeListener?.(lifetime, listener);
+  if (context.isPage) context.on?.(lifetime, listener);
 };
 
 const addComponentLifetimeListener = (lifetime, listener) => {
   const context = useCurrentSetupContext();
-  if (context.isComponent) context.addLifetimeListener?.(lifetime, listener);
+  if (context.isComponent) context.on?.(lifetime, listener);
 };
 
 /**
@@ -47,7 +47,7 @@ export function onUnload(listener) {
  * @param { () => void } listener 生命周期回调函数
  */
 export function onReady(listener) {
-  useCurrentSetupContext()?.addLifetimeListener?.("ready", listener);
+  useCurrentSetupContext()?.on?.("ready", listener);
 }
 
 /**
@@ -60,7 +60,7 @@ export function onReady(listener) {
  * @param { () => void } listener 生命周期回调函数
  */
 export function onShow(listener) {
-  useCurrentSetupContext()?.addLifetimeListener?.("show", listener);
+  useCurrentSetupContext()?.on?.("show", listener);
 }
 
 /**
@@ -73,7 +73,7 @@ export function onShow(listener) {
  * @param { () => void } listener 生命周期回调函数
  */
 export function onHide(listener) {
-  useCurrentSetupContext()?.addLifetimeListener?.("hide", listener);
+  useCurrentSetupContext()?.on?.("hide", listener);
 }
 
 /**
@@ -135,20 +135,20 @@ export function onMoved(listener) {
  * component/pageLifetimes/resize
  */
 export function onPageResize(listener) {
-  useCurrentSetupContext()?.addLifetimeListener?.("pageresize", listener);
+  useCurrentSetupContext()?.on?.("resize", listener);
 }
 
 /**
- * onrouteDone
+ * onRouteDone
  *
- * page/onrouteDone
+ * page/onRouteDone
  *
  * component/pageLifetimes/routeDone
  *
  * @param { () => void } listener 生命周期回调函数
  */
-export function onrouteDone(listener) {
-  useCurrentSetupContext()?.addLifetimeListener?.("routeDone", listener);
+export function onRouteDone(listener) {
+  useCurrentSetupContext()?.on?.("routeDone", listener);
 }
 
 /**
@@ -189,3 +189,8 @@ export function onMounted(handle) {
 export function onUnmounted(handle) {
   useCurrentSettingUpInstanceScope()?.onDispose(() => handle());
 }
+
+export function onPullDownRefresh(handle) {}
+export function onReachBottom(handle) {}
+export function onPageScroll(handle) {}
+export function onTabItemTap(handle) {}

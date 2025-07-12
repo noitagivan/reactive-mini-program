@@ -4,7 +4,7 @@ import {
   subscribeStateOfSignal,
 } from "../state/index";
 import { EventBus } from "../utils/index";
-import InstanceSetupContext from "./InstanceSetupContext";
+import InstanceSetupContext from "./setup-context/InstanceSetupContext";
 
 const eventBus = new EventBus();
 class InstanceScope {
@@ -36,7 +36,7 @@ class InstanceScope {
         this.isRunning = false;
         this.context
           .bindSignalsAndMethods()
-          .forEach((unbind) => this.onDispose(unbind));
+          .forEach((unbind) => this.addLifeTimeListener("dispose", unbind));
       });
       ctx.resetScope(this);
       return this.context;
@@ -50,9 +50,9 @@ class InstanceScope {
       this.parentScope = parentScope;
     }
     if (this.isPage) {
-      this.context.invokeLifeTimeCallback("load", options);
+      this.context.distributeLifeTimeEvent("load", options);
     } else if (this.isComponent) {
-      this.context.invokeLifeTimeCallback("attached");
+      this.context.distributeLifeTimeEvent("attached");
     }
     eventBus
       .emit(`${this.pageId}/lifetime:beforemount`)
@@ -72,15 +72,16 @@ class InstanceScope {
     if (data === false) return;
     if (data) {
       if (isWatchable(data.value)) {
-        this.onDispose(
+        this.addLifeTimeListener(
+          "dispose",
           subscribeStateOfSignal(data.value, ({ value }) => setter(value))
         );
       } else setter(data.value);
     } else this.listenPageProvidedData(key, setter);
   }
-
   listenPageProvidedData(key, setter) {
-    this.onDispose(
+    this.addLifeTimeListener(
+      "dispose",
       eventBus.on(`${this.pageId}/provide:${key}`, ({ payload }) =>
         setter(payload)
       )
@@ -89,29 +90,17 @@ class InstanceScope {
   broadcastPageProvidedData(key, value) {
     eventBus.emit(`${this.pageId}/provide:${key}`, value);
   }
-  onBeforeMount(cb) {
-    eventBus.on(`${this.pageId}/lifetime:beforemount`, cb);
+  addLifeTimeListener(lifetime, listener) {
+    eventBus.on(`${this.pageId}/lifetime:${lifetime}`, listener);
   }
-  offBeforeMount(cb) {
-    eventBus.off(`${this.pageId}/lifetime:beforemount`);
-  }
-  onMounted(cb) {
-    eventBus.on(`${this.pageId}/lifetime:mounted`, cb);
-  }
-  offMounted(cb) {
-    eventBus.off(`${this.pageId}/lifetime:mounted`, cb);
-  }
-  onDispose(cb) {
-    eventBus.on(`${this.pageId}/lifetime:dispose`, cb);
-  }
-  offDispose(cb) {
-    eventBus.off(`${this.pageId}/lifetime:dispose`, cb);
+  removeLifeTimeListener(lifetime, listener) {
+    eventBus.off(`${this.pageId}/lifetime:${lifetime}`, listener);
   }
   stop() {
     if (this.isPage) {
-      this.context.invokeLifeTimeCallback("unload");
+      this.context.distributeLifeTimeEvent("unload");
     } else if (this.isComponent) {
-      this.context.invokeLifeTimeCallback("detached");
+      this.context.distributeLifeTimeEvent("detached");
     }
     eventBus.emit(`${this.pageId}/lifetime:dispose`).offNamespace(this.pageId);
 
