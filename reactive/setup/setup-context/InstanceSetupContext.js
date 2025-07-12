@@ -6,10 +6,12 @@ import {
   isObjectSignal,
   computed,
 } from "../../state/index";
-import { protectedSignal } from "../../state/signal";
+import { captureSignal, protectedSignal } from "../../state/signal";
 import { EventBus, isFunction, isNonEmptyString } from "../../utils/index";
-import SetupContex from "./SetupContext";
+import SetupContext from "./SetupContext";
 import {
+  componentFullLifetimeNames,
+  componentPageLifetimeNames,
   createDataBinder,
   createMixObserver,
   formatObserveSource,
@@ -17,9 +19,10 @@ import {
   pageLifetimeMap,
 } from "../util";
 
-const crossComponentEventBus = new EventBus();
+const crossInstanceEventBus = new EventBus();
+const crossInstancePageEvents = new Map();
 
-export default class extends SetupContex {
+export default class extends SetupContext {
   static invokeDefinedPageMethod(runtime, page, methodName, args) {
     return runtime
       .getPageScope(page.getPageId())
@@ -55,17 +58,13 @@ export default class extends SetupContex {
     setter: null,
     values: {},
   };
-  setupPageEvents = [];
   providedData = new Map();
+  injectedKeys = new Map();
   methods = new Map();
 
-  getPackagedProps() {
-    const {
-      setupProps,
-      setupProps: { values },
-    } = this;
+  getPackagedProps(values) {
+    const { setupProps } = this;
     const [signal, getter, setter] = protectedObjectSignal(values);
-    // const [getSetupProps, setSetupProps] = protect(values);
     setupProps.getter = getter;
     setupProps.setter = setter;
     setupProps.defined = true;
@@ -74,7 +73,7 @@ export default class extends SetupContex {
   getSetupProps() {
     const { defined, getter } = this.setupProps;
     if (defined && getter) return getter();
-    return null;
+    return Object.freeze({});
   }
   syncSetupProps(values) {
     const { defined, setter } = this.setupProps;
@@ -84,86 +83,134 @@ export default class extends SetupContex {
     }
   }
 
-  setProvidedData(scope, key, value) {
-    super.setProvidedData(scope, key, value);
-    if (this.providedData && (isNonEmptyString(key) || isSymbol(key))) {
-      if (isFunction(value)) {
-        value = computed(value);
-      }
-      this.providedData.set(key, { value });
-      if (this.isPage) {
-        if (isWatchable(value)) {
-          subscribeStateOfSignal(value, (payload) =>
-            scope.broadcastPageProvidedData(key, payload.value)
-          );
-          scope.broadcastPageProvidedData(key, value());
-        } else {
-          scope.broadcastPageProvidedData(key, value);
-        }
-      }
-      return true;
-    }
-    return false;
-  }
   injectProvidedData(scope, key, defaultValue) {
-    // inject 阶段组件尚未 attach, 并不知道 parentScope
-    // 只能先创建对应的 signal, 然后在 attached 后再绑定
-    // 为了保证 mounted 生命周期能读到相对正确的值
-    // 将绑定任务插入到 instanceScope 的 beforemount 生命周期
     const [signal, setter] = protectedSignal(
       super.injectProvidedData(scope, key, defaultValue)
     );
     if (isNonEmptyString(key) || isSymbol(key)) {
       scope.addLifeTimeListener("beforemount", () =>
-        scope.bindParentProvidedData(key, setter)
+        this.reactive().bindProvidedData(scope, key, setter).inactive()
       );
     }
     return signal;
   }
-  getProvidedData(scope, key) {
-    // 此方法被调用，说明组件是 attached 状态，
-    // 因为只有 attached 时父子 Scope 的关系才明确
-    const { isPage, providedData } = this;
-    if (providedData?.has(key)) return providedData.get(key);
-    if (isPage) return false;
-    if (scope.parentScope) {
-      return scope.parentScope.context.getProvidedData(key);
+  setProvidedData(scope, key, data) {
+    super.setProvidedData(scope, key, data);
+    if (this.providedData && (isNonEmptyString(key) || isSymbol(key))) {
+      if (isFunction(data)) {
+        data = computed(data);
+      }
+      this.providedData.set(key, { data });
+      // console.log("setProvidedData", key, value);
+      if (this.isPage) {
+        if (isWatchable(data)) {
+          subscribeStateOfSignal(data, (payload) =>
+            this.invokeCustomPageEvent(
+              scope,
+              `providedchange:${key}`,
+              payload.value
+            )
+          );
+          this.invokeCustomPageEvent(scope, `providedchange:${key}`, data());
+        } else {
+          this.invokeCustomPageEvent(scope, `providedchange:${key}`, data);
+        }
+        this.invokeCustomPageEvent(scope, `provide`, key);
+      }
+      return true;
     }
-    return this.getPageProvidedData(scope, key);
+    return false;
   }
-  getPageProvidedData(scope, key) {
-    const { runtime, isPage } = this;
-    if (isPage) return false;
-    const pageIntanceScope = runtime.getPageScope(scope.pageId);
-    if (pageIntanceScope) {
-      scope.parentScope = pageIntanceScope;
-      return pageIntanceScope.context.getProvidedData(key);
-    }
-    return null;
+  getProvidedData(key) {
+    this.checkIsNotIdle("get provided data");
+    const { isPage, providedData } = this;
+    // console.log("getProvidedData", key, providedData);
+    return providedData.get(key) || (isPage ? false : null);
+  }
+  bindProvidedData(scope, key, onData) {
+    this.checkIsNotIdle("bind provided data");
+    this.checkIsType("Component", "bind provided data");
+    const data = scope.getAncestorProvidedData(
+      key,
+      this.runtime.getPageScope.bind(this.runtime)
+    );
+    // console.log("bindProvidedData", key, data);
+    if (data === false) return;
+    if (data) {
+      this.injectedKeys.set(key, true);
+      if (isWatchable(data.value)) {
+        scope.addLifeTimeListener(
+          "dispose",
+          subscribeStateOfSignal(data.value, ({ value }) => onData(value))
+        );
+        onData(captureSignal(data.value, true));
+      } else onData(data.value);
+    } else this.subscribePageProvidedDataWrite(scope, key, onData);
+    return this;
+  }
+  subscribePageProvidedDataWrite(scope, key, onData) {
+    this.checkIsType("Component", "subscribe page provided data");
+    this.addCustomPageEventListener(
+      scope,
+      `providedchange:${key}`,
+      onData,
+      false
+    );
+    this.injectedKeys.set(key, false);
+    return this;
+  }
+  subscribePageProvidedDataReady(scope, handle) {
+    super.subscribePageProvidedDataReady(scope, handle);
+    this.addCustomPageEventListener(
+      scope,
+      "provide",
+      (key) => {
+        // console.log("subscribePageProvidedDataReady", key, this.injectedKeys);
+        if (this.injectedKeys.get(key) === false) {
+          this.injectedKeys.set(key, true);
+          handle({ key });
+        }
+      },
+      true
+    );
   }
 
-  addLifetimeListener(lifetime, listener) {
-    if (super.addLifetimeListener(lifetime, listener)) {
+  addLifetimeListener(lifetime, handler) {
+    if (super.addLifetimeListener(lifetime, handler)) {
       this.eventBus.on(`lifetimes/${lifetime}`, ({ payload }) =>
-        listener.call(this.instance, ...payload)
+        handler.call(this.instance, ...payload)
       );
       return true;
     }
     return false;
   }
-  addPageEventListener(scope, eventname, listener) {
-    super.addPageEventListener(scope, eventname, listener);
+  addPageEventListener(scope, eventname, handler) {
+    super.addPageEventListener(scope, eventname, handler);
     if (pageEventNames.includes(eventname) && isFunction(handler)) {
-      const { instance, pageId, setupPageEvents } = this;
-      if (!setupPageEvents.includes(eventname)) setupPageEvents.push(eventname);
+      const events = crossInstancePageEvents.get(scope.pageId) || [];
+      if (!events?.includes(eventname)) events.push(eventname);
+      crossInstancePageEvents.set(scope.pageId, events);
       scope.addLifeTimeListener(
         "dispose",
-        crossComponentEventBus.on(
-          `${pageId}/events/${eventname}`,
-          ({ payload }) => listener.call(instance, ...payload)
+        crossInstanceEventBus.on(
+          `${scope.pageId}/events/${eventname}`,
+          ({ payload }) => handler.call(this.instance, ...payload)
         )
       );
+      return true;
     }
+    return false;
+  }
+  addCustomPageEventListener(scope, eventname, handler, once = false) {
+    super.addCustomPageEventListener(scope, eventname, handler, once);
+    scope.addLifeTimeListener(
+      "dispose",
+      crossInstanceEventBus[once ? "once" : "on"](
+        `${scope.pageId}/custom-events/${eventname}`,
+        ({ payload }) => handler(...payload)
+      )
+    );
+    return true;
   }
   addDataAndSignalObserver(scope, src, observer) {
     super.addDataAndSignalObserver(scope, src, observer);
@@ -187,33 +234,9 @@ export default class extends SetupContex {
     return () => false;
   }
 
-  createPageInstanceLifeTimeHandles(_, options) {
-    const { instance, setupLifeTimes } = this;
-    setupLifeTimes.forEach((lifetime) => {
-      const [handleName, replace] = pageLifetimeMap[lifetime];
-      this.addLifetimeListener(lifetime, options[handleName]);
-      if (replace) {
-        instance[handleName] = this.distributeLifeTimeEvent.bind(
-          this,
-          lifetime
-        );
-      }
-    });
-  }
-  createPageInstanceHookHandle(scope, options) {
-    const { instance, setupPageEvents } = this;
-    setupPageEvents.forEach((eventname) => {
-      this.addPageEventListener(scope, eventname, options[eventname]);
-      instance[`on${eventname}`] = this.invokeSetupPageEvent.bind(
-        this,
-        eventname
-      );
-    });
-  }
-  bindSignalsAndMethods() {
-    this.isSetupIdle = true;
+  bindSignalsAndSetMethods() {
+    this.checkIsNotIdle("create bind signals and set methods");
     const { instance, setupReturns, methods } = this;
-
     const { setData, bind, unbinds } = createDataBinder(instance);
     Object.entries(setupReturns).forEach(([name, property]) => {
       if (isFunction(property)) {
@@ -227,13 +250,71 @@ export default class extends SetupContex {
     }
     return unbinds;
   }
+  registerPageInstanceLifeTimeHandles() {
+    this.checkIsNotIdle("create lifetime handles");
+    this.checkIsType("Page", "create page hook handles");
+    const { instance, setupLifeTimes } = this;
+    setupLifeTimes.forEach((lifetime) => {
+      const [handleName, replace] = pageLifetimeMap[lifetime];
+      this.addLifetimeListener(lifetime, instance[handleName]);
+      if (replace) {
+        instance[handleName] = this.distributeLifeTimeEvent.bind(
+          this,
+          lifetime
+        );
+      }
+    });
+    return this;
+  }
+  registerComponentInstanceLifeTimeHandles(options) {
+    this.checkIsNotIdle("create lifetime handles");
+    this.checkIsType("Component", "create page hook handles");
+    const { setupLifeTimes } = this;
+    setupLifeTimes.forEach((lifetime) => {
+      let optHandler;
+      if (componentFullLifetimeNames.includes(lifetime)) {
+        optHandler = options.lifetimes?.[lifetime] || options[lifetime];
+      } else if (componentPageLifetimeNames.includes(lifetime)) {
+        optHandler = options.pageLifetimes?.[lifetime];
+      } else return;
+      this.addLifetimeListener(lifetime, optHandler);
+    });
+    return this;
+  }
+  createPageInstanceHookHandle(scope) {
+    this.checkIsNotIdle("create page hook handles");
+    this.checkIsType("Page", "create page hook handles");
+    crossInstancePageEvents.get(scope.pageId)?.forEach((eventname) => {
+      const handleName = `on${eventname}`;
+      this.addPageEventListener(scope, eventname, this.instance[handleName]);
+      this.instance[handleName] = this.invokeSetupPageEvent.bind(
+        this,
+        scope,
+        eventname
+      );
+    });
+    return this;
+  }
 
   distributeLifeTimeEvent(lifetime, ...payload) {
     this.eventBus.emit(`lifetimes/${lifetime}`, payload);
     return this;
   }
-  invokeSetupPageEvent(eventname, ...payload) {
-    crossComponentEventBus.emit(`${this.pageId}/events/${eventname}`, payload);
+  invokeSetupPageEvent(scope, eventname, ...payload) {
+    // console.log(`invokeSetupPageEvent ${scope.pageId}/events/${eventname}`, payload);
+    crossInstanceEventBus.emit(`${scope.pageId}/events/${eventname}`, payload);
+    console.log(this.methods);
+    if (this.methods[eventname]) {
+      this.methods[eventname].call(this.instance, ...payload);
+    }
+    return this;
+  }
+  invokeCustomPageEvent(scope, eventname, ...payload) {
+    this.checkIsType("Page", "invoke custom page event");
+    crossInstanceEventBus.emit(
+      `${scope.pageId}/custom-events/${eventname}`,
+      payload
+    );
     return this;
   }
   distributeDataChangeEvent(src, ...values) {
@@ -244,13 +325,15 @@ export default class extends SetupContex {
     return this.methods?.get(methodName)?.call(this.instance, ...args);
   }
   reset(configs = {}) {
+    const pageId = this.instance.getPageId();
+    if (pageId) crossInstanceEventBus.offNamespace(pageId);
     this.setupProps = {
       defined: false,
       getter: null,
       setter: null,
       values: {},
     };
-    this.setupPageEvents = [];
+    crossInstancePageEvents.delete(pageId);
     this.eventBus.clear();
     this.providedData.clear();
     this.methods.clear();

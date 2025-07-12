@@ -1,6 +1,6 @@
 import {
   defineComponent,
-  isWatchable,
+  onMounted,
   onShow,
   ref,
   useSchedule,
@@ -10,10 +10,7 @@ import {
 } from "../../reactive/index";
 
 defineComponent({
-  setup(
-    { defineProps, observe, inject, provide },
-    { isSettingUpInstance, $props }
-  ) {
+  setup({ $props, provide, inject, defineProps, observe }) {
     const props = defineProps({
       propA: {
         type: String,
@@ -36,70 +33,57 @@ defineComponent({
 
     provide("propA", () => props.propA);
 
-    console.log(
-      `[ Define Component ${isSettingUpInstance ? "Instance" : "Options"} ]`,
-      isWatchable(props),
-      "props:",
-      props,
-      "buttonName:",
-      buttonName
-    );
+    // watch(
+    //   aaaa,
+    //   (v) => {
+    //     console.log("observers watch aaaa", v);
+    //   },
+    //   { immediate: true }
+    // );
 
-    watch(
-      aaaa,
-      (v) => {
-        console.log("observers watch aaaa", v);
-      },
-      { immediate: true }
-    );
+    // watchEffect(() => {
+    //   console.log("observers watchEffect aaaa().bbbb", aaaa().bbbb);
+    // });
 
-    watchEffect(() => {
-      console.log("observers watchEffect aaaa().bbbb", aaaa().bbbb);
-    });
+    // watch(
+    //   [page, motto],
+    //   (p, m) => {
+    //     console.log("watch providedData com", p, m);
+    //   },
+    //   { immediate: true }
+    // );
 
-    watch(
-      [page, motto],
-      (p, m) => {
-        console.log("watch providedData com", p, m);
-      },
-      { immediate: true }
-    );
+    // watchEffect(() => {
+    //   console.log("watchEffect->$props", $props());
+    // });
 
-    watchEffect(() => {
-      console.log("defineComponent->watchEffect->$props", $props());
-    });
+    // watchEffect(() => {
+    //   console.log("watchEffect->propA", props.propA, buttonName2.value);
+    // });
 
-    watchEffect(() => {
-      console.log(
-        "defineComponent->watchEffect->propA",
-        props.propA,
-        buttonName2.value
-      );
-    });
+    // watch(
+    //   props,
+    //   (v) => {
+    //     console.log("watch(props)", v);
+    //   },
+    //   { immediate: true }
+    // );
 
-    watch(
-      props,
-      (v) => {
-        console.log("defineComponent->watch(props)", v);
-      },
-      { immediate: true }
-    );
+    // observe([page, "propB", motto], (p, b, m) => {
+    //   console.log("observe(page, propB, motto)", p, b, m);
+    // });
 
-    observe([page, "propB", motto], (p, b, m) => {
-      console.log("defineComponent->observe(page, propB, motto)", p, b, m);
-    });
+    // observe("aaaa", (v) => {
+    //   console.log("observers aaaa", v);
+    // });
 
-    observe("aaaa", (v) => {
-      console.log("observers aaaa", v);
-    });
+    // observe("aaaa.bbbb", (v) => {
+    //   console.log("observers aaaa.bbbb", v);
+    // });
 
-    observe("aaaa.bbbb", (v) => {
-      console.log("observers aaaa.bbbb", v);
-    });
-
-    observe("aaaa.bbbb.cccc", (v) => {
-      console.log("observers aaaa.bbbb.cccc", v);
-    });
+    // observe("aaaa.bbbb.cccc", (v) => {
+    //   console.log("observers aaaa.bbbb.cccc", v);
+    // });
 
     useSchedule(() => {
       setButtonName("Clickable");
@@ -109,6 +93,8 @@ defineComponent({
     onShow(() => {
       console.log("onShow");
     });
+
+    onMounted(() => console.log("ParentMount"));
 
     const onChildMount = (e) => console.log("onChildMount", e.detail);
 

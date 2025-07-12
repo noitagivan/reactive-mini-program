@@ -1,13 +1,13 @@
-import { isFunction, isString } from "./index";
+import { isFunction, isNonEmptyString, isString } from "./index";
 
 export default class EventBus {
-  _events = new Map();
-  _withTimestamp = false;
-  _shouldMatchWildcard = true;
+  #events = new Map();
+  #withTimestamp = false;
+  #shouldMatchWildcard = true;
 
   constructor(withTimestamp = false, shouldMatchWildcard = true) {
-    this._withTimestamp = !!withTimestamp;
-    this._shouldMatchWildcard = shouldMatchWildcard !== false;
+    this.#withTimestamp = !!withTimestamp;
+    this.#shouldMatchWildcard = shouldMatchWildcard !== false;
   }
 
   /**
@@ -18,10 +18,10 @@ export default class EventBus {
    */
   on(eventType, handler) {
     if (isFunction(handler)) {
-      if (!this._events.has(eventType)) {
-        this._events.set(eventType, new Set());
+      if (!this.#events.has(eventType)) {
+        this.#events.set(eventType, new Set());
       }
-      const handlers = this._events.get(eventType);
+      const handlers = this.#events.get(eventType);
       handlers.add(handler);
 
       // 返回取消订阅的函数
@@ -49,18 +49,22 @@ export default class EventBus {
       type: eventType,
       payload,
     };
-    if (this._withTimestamp) event.timestamp = Date.now();
+    if (this.#withTimestamp) event.timestamp = Date.now();
 
-    const exactHandlers = this._events.get(eventType);
+    const exactHandlers = this.#events.get(eventType);
     if (exactHandlers?.size) {
       exactHandlers.forEach((handler) => handler(event));
     }
-    if (isString(eventType) && eventType.includes("/")) {
+    if (
+      this.#shouldMatchWildcard &&
+      isString(eventType) &&
+      eventType.includes("/")
+    ) {
       const parts = eventType.split(this.separator);
       parts.pop();
       while (parts.length) {
         const wildcardEventName = [...parts, "*"].join("/");
-        const wildcardHandlers = this._events.get(wildcardEventName);
+        const wildcardHandlers = this.#events.get(wildcardEventName);
         if (wildcardHandlers?.size) {
           wildcardHandlers.forEach((handler) => handler(event));
         }
@@ -76,13 +80,13 @@ export default class EventBus {
    */
   off(eventType, handler) {
     if (isFunction(handler)) {
-      const handlers = this._events.get(eventType);
+      const handlers = this.#events.get(eventType);
       handlers?.delete(handler);
       if (handlers?.size === 0) {
-        this._events.delete(eventType);
+        this.#events.delete(eventType);
       }
     } else {
-      this._events.delete(eventType);
+      this.#events.delete(eventType);
     }
     return this;
   }
@@ -95,10 +99,12 @@ export default class EventBus {
    */
   offNamespace(namespace) {
     // 自动补充分隔符（如 'user' → 'user/'）
-    const normalize = namespace.endsWith("/") ? namespace : namespace + "/";
-    for (const eventType of this._events.keys()) {
-      if (isString(eventType) && eventType.startsWith(normalize)) {
-        this.off(eventType);
+    if (isNonEmptyString(namespace)) {
+      const normalize = namespace.endsWith("/") ? namespace : namespace + "/";
+      for (const eventType of this.#events.keys()) {
+        if (isString(eventType) && eventType.startsWith(normalize)) {
+          this.off(eventType);
+        }
       }
     }
     return this;
@@ -108,7 +114,7 @@ export default class EventBus {
    * 清除所有事件监听
    */
   clear() {
-    this._events.clear();
+    this.#events.clear();
     return this;
   }
 }

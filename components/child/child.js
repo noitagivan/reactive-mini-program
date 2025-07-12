@@ -1,7 +1,12 @@
-import { defineComponent, onMounted, watch } from "../../reactive/index";
+import {
+  defineComponent,
+  onMounted,
+  onPageScroll,
+  watch,
+} from "../../reactive/index";
 
-defineComponent(({ inject }, { $this, emit }) => {
-  const motto = inject("motto", "replace2");
+defineComponent(({ $this, $emit, inject, onPageDataProvide }) => {
+  // const motto = inject("motto", "replace2");
   const propA = inject("propA", "propAAAA");
   const none = inject("none", "nulllll");
 
@@ -12,17 +17,23 @@ defineComponent(({ inject }, { $this, emit }) => {
     }
     // { immediate: true }
   );
-  watch(
-    motto,
-    (m) => {
-      console.log("watch providedData child", m);
-    },
-    { immediate: true }
-  );
+  // watch(
+  //   motto,
+  //   (m) => {
+  //     console.log("watch providedData child", m);
+  //   },
+  //   { immediate: true }
+  // );
 
   onMounted(() => {
-    console.log("Child mounted");
+    console.log("ChildMounted", propA());
     // $this.triggerEvent("mounted", { me: $this });
-    emit("mounted", { me: $this });
+    $emit("mounted", { me: $this });
+  });
+  onPageDataProvide((key) => {
+    console.log("onPageDataProvide", key, propA());
+  });
+  onPageScroll((e) => {
+    console.log("component onPageScroll", e);
   });
 });

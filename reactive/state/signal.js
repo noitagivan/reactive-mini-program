@@ -141,7 +141,7 @@ export function emitSignal(signal, newValue) {
 }
 export function captureSignal(signalOrRef, slient = false) {
   const signal = CONTEXT.getSignal(signalOrRef);
-  if (slient) return signal?.[SignalSource]._value;
+  if (slient) return signal?.[SignalSource].$value$;
   return signal?.();
 }
 

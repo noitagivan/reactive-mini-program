@@ -1,37 +1,41 @@
-import { mergeCallbacks } from "../utils/index";
+import { EventBus } from "../utils/index";
 
 const CONTEXT = {
-  silentScope: null,
-  currentScope: null,
+  effectFreeScope: null,
+  currentSignalScope: null,
   setCurrentScope(scope) {
     if (scope && scope instanceof SignalScope) {
-      this.currentScope = scope;
+      this.currentSignalScope = scope;
     } else {
-      this.currentScope = null;
+      this.currentSignalScope = null;
     }
   },
   getCurrentScope() {
-    return this.currentScope;
+    return this.currentSignalScope;
   },
 };
 
-class SignalScope {
-  isRunning = false;
-  parentScope = null;
-  handlers = {};
+class SignalScope extends EventBus {
+  #isRunning = false;
+  #parentScope = null;
+
+  get isRunning() {
+    return this.#isRunning;
+  }
   constructor() {
-    this.parentScope = CONTEXT.currentScope;
+    super(true);
+    this.#parentScope = CONTEXT.currentSignalScope;
   }
   run(fn) {
     try {
       CONTEXT.setCurrentScope(this);
-      this.isRunning = true;
+      this.#isRunning = true;
       const result = fn();
-      this.isRunning = true;
-      CONTEXT.setCurrentScope(this.parentScope);
+      this.#isRunning = true;
+      CONTEXT.setCurrentScope(this.#parentScope);
       return result;
     } catch (error) {
-      CONTEXT.setCurrentScope(this.parentScope);
+      CONTEXT.setCurrentScope(this.#parentScope);
       throw error;
     }
   }
@@ -40,33 +44,17 @@ class SignalScope {
 
 class EffectScope extends SignalScope {
   isEffective = true;
-  constructor() {
-    super();
-    this.handlers.onDisposeCallbacks = new Set();
-  }
-  onDispose(cb) {
-    const { onDisposeCallbacks } = this.handlers;
-    onDisposeCallbacks.add(cb);
-  }
-  offDispose(cb) {
-    const { onDisposeCallbacks } = this.handlers;
-    onDisposeCallbacks.delete(cb);
-  }
   stop() {
-    const { onDisposeCallbacks } = this.handlers;
-    if (onDisposeCallbacks.size) {
-      mergeCallbacks(Array.from(onDisposeCallbacks.values()))();
-      onDisposeCallbacks.clear();
-    }
+    this.emit("effectscopedispose").clear();
   }
 }
 
-CONTEXT.silentScope = new (class EffectFreeScope extends SignalScope {
+CONTEXT.effectFreeScope = new (class EffectFreeScope extends SignalScope {
   isSilent = true;
 })();
 
 export function runInEffectFreeScope(fn) {
-  return CONTEXT.silentScope.run(fn);
+  return CONTEXT.effectFreeScope.run(fn);
 }
 
 export function isRunInEffectFreeScope() {
@@ -92,10 +80,10 @@ export function getCurrentEffectScope() {
 
 export function onScopeDispose(cb) {
   const scope = CONTEXT.getCurrentScope();
-  scope?.onDispose?.(cb);
+  if (scope?.isEffective) scope.on("effectscopedispose", cb);
 }
 
 export function offScopeDispose(cb) {
   const scope = CONTEXT.getCurrentScope();
-  scope?.offDispose?.(cb);
+  if (scope?.isEffective) scope.off("effectscopedispose", cb);
 }

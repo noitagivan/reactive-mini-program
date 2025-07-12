@@ -19,13 +19,13 @@ export default class extends SetupContext {
     return () => false;
   }
 
-  getPropertiesOption(options) {
-    const { option, values } = this.setupRecords.componentProps;
-    const properties = option || options.properties || {};
-    return { properties, values };
+  createPropertiesOption(options) {
+    // this.checkIsNotIdle("create properties option");
+    const { option } = this.setupRecords.componentProps;
+    return option || options.properties || {};
   }
-  getDataAndMethodsOptions(optData, optMethod) {
-    this.isSetupIdle = true;
+  createDataAndMethodsOptions(optData, optMethod) {
+    // this.checkIsNotIdle("create data and methods option");
     const { runtime, isPage } = this;
     const data = { ...optData };
     const methods = { ...optMethod };
@@ -47,9 +47,11 @@ export default class extends SetupContext {
         data[name] = property;
       }
     });
+    // this.setupReturns = {};
     return { data, methods };
   }
-  getLifetimeOptions(options) {
+  createLifetimeOptions(options) {
+    // this.checkIsNotIdle("create lifetime option");
     const { runtime, setupLifeTimes } = this;
     const lifetimes = { ...options.lifetimes };
     const pageLifetimes = { ...options.pageLifetimes };
@@ -67,9 +69,11 @@ export default class extends SetupContext {
         lifetimes[lifetime] = lifetimehandle;
       }
     });
+    // this.setupLifeTimes = [];
     return { lifetimes, pageLifetimes };
   }
-  getObserversOption(optObservers) {
+  createObserversOption(optObservers) {
+    // this.checkIsNotIdle("create observers option");
     const { runtime, isPage, setupRecords } = this;
     const { observers: setupObservers, componentProps: props } = setupRecords;
     const observers = { ...optObservers };
@@ -95,19 +99,7 @@ export default class extends SetupContext {
         sameSourceCallback?.call(this, ...values);
       };
     }
+    // this.setupRecords.observers = {};
     return observers;
-  }
-  reset(configs = {}) {
-    this.isSetupIdle = true;
-    this.isPage = false;
-    this.isComponent = false;
-    this.setupRecords = {
-      componentProps: {},
-      observers: {},
-    };
-    this.setupLifeTimes = [];
-    this.setupReturns = {};
-    this.instance = null;
-    return Object.assign(this, configs);
   }
 }

@@ -14,12 +14,12 @@ const defaultAvatarUrl =
 
 const [globalCount, updareGlobalCount] = useSignal(0);
 
-definePage(({ provide }, context) => {
+definePage(({ provide, $this }) => {
   useWatches();
   const count = useCounter();
   const motto = computed(() => `Hello World ${count()}`);
 
-  provide("page", context.$this?.is);
+  provide("page", $this?.is);
   provide("motto", motto);
 
   watchEffect(() => {
@@ -50,6 +50,9 @@ definePage(({ provide }, context) => {
     hasUserInfo: false,
     canIUseGetUserProfile: wx.canIUse("getUserProfile"),
     canIUseNicknameComp: wx.canIUse("input.type.nickname"),
+    onPageScroll(e) {
+      console.log("page onPageScroll", e);
+    },
     bindViewTap() {
       wx.navigateTo({
         url: "../logs/logs",
@@ -83,6 +86,14 @@ definePage(({ provide }, context) => {
           });
         },
       });
+    },
+    onShareAppMessage() {
+      CONTEXT.getPageScope(pageId)?.stop();
+      console.log("page.onShareAppMessage");
+      return {
+        title: "转发标题A",
+        imageUrl: "", // 图片 URL
+      };
     },
   };
 });

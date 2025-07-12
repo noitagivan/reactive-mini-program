@@ -1,21 +1,24 @@
 import { isFunction } from "../utils/index";
 import OptionsSetupContext from "./setup-context/OptionsSetupContext";
-import SetupContex from "./setup-context/SetupContext";
+import SetupContext from "./setup-context/SetupContext";
 
 export default class {
   pageScopeMap = new Map();
   componentScopeMap = new WeakMap();
-  instanceScope = null;
-  getInstanceScope() {
-    return this.instanceScope;
+  #instanceScope = null;
+  #setInstanceScope(scope) {
+    this.#instanceScope = scope;
+  }
+  #getInstanceScope() {
+    return this.#instanceScope;
   }
   resetInstanceScope() {
-    this.instanceScope = null;
+    this.#instanceScope = null;
   }
   setPageScope(id, scope) {
     if (scope) {
       this.pageScopeMap.set(id, scope);
-      this.instanceScope = scope;
+      this.#setInstanceScope(scope);
     } else {
       this.pageScopeMap.delete(id);
     }
@@ -27,7 +30,7 @@ export default class {
   setComponentScope(instance, scope) {
     if (scope) {
       this.componentScopeMap.set(instance, scope);
-      this.instanceScope = scope;
+      this.#setInstanceScope(scope);
     } else {
       this.componentScopeMap.delete(instance);
     }
@@ -66,23 +69,24 @@ export default class {
       }
       return null;
     };
-    return formatScope(this.getInstanceScope());
+    return formatScope(this.#getInstanceScope());
   }
 
   optionsSetupContext = new OptionsSetupContext();
-  setupContex = null;
+  #setupContext = null;
   /**
-   * @returns { SetupContex | null }
+   * @returns { SetupContext | null }
    */
   setSetupContext(ctx) {
-    this.setupContex = ctx;
-    return ctx;
+    const _ctx = ctx || this.#setupContext;
+    this.#setupContext = ctx;
+    return _ctx;
   }
-  getSetupContex() {
-    return this.setupContex;
+  getSetupContext() {
+    return this.#setupContext;
   }
   exposeSetupContext() {
-    const ctx = this.getSetupContex();
+    const ctx = this.getSetupContext();
     const instanceScope = this.exposeInstanceScope();
     if (ctx) {
       const { isPage, isComponent } = ctx;
@@ -90,10 +94,13 @@ export default class {
       return {
         isPage,
         isComponent,
-        observe: ctx.addDataAndSignalObserver.bind(ctx, instanceScope),
-        inject: ctx.injectProvidedData.bind(ctx, instanceScope),
-        on: ctx.addLifetimeListener.bind(ctx, instanceScope),
-        listen: ctx.addPageEventListener.bind(ctx, instanceScope),
+        observe: ctx.addDataAndSignalObserver.bind(
+          ctx,
+          this.#getInstanceScope()
+        ),
+        inject: ctx.injectProvidedData.bind(ctx, this.#getInstanceScope()),
+        on: ctx.addLifetimeListener.bind(ctx),
+        listen: ctx.addPageEventListener.bind(ctx, this.#getInstanceScope()),
         instanceScope,
       };
     }
@@ -102,16 +109,21 @@ export default class {
 
   /**
    * @param { Function } setup
-   * @param { SetupContex } ctx
+   * @param { SetupContext } ctx
    */
   runSetup(setup, ctx) {
     this.setSetupContext(ctx).runtime = this;
     if (isFunction(setup)) {
-      const scope = this.getInstanceScope();
-      ctx.setupReturns =
-        setup(ctx.exposeDefiners(scope), ctx.exposeContext(scope)) || {};
+      const expose = ctx.exposeContext(this.#getInstanceScope());
+      if (expose.isSettingUpInstance) {
+        console.info(
+          ctx.isPage ? "[ Load Page ]" : "[ Create Component ]",
+          new Date(),
+          expose
+        );
+      }
+      ctx.setupReturns = setup(expose) || {};
     }
-    this.setSetupContext(null);
     return ctx;
   }
 }

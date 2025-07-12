@@ -3,14 +3,14 @@ import {
   useCurrentSetupContext,
 } from "../setup/main";
 
-const addPageLifetimeListener = (lifetime, listener) => {
+const addPageLifetimeListener = (lifetime, handle) => {
   const context = useCurrentSetupContext();
-  if (context.isPage) context.on?.(lifetime, listener);
+  if (context.isPage) context.on?.(lifetime, handle);
 };
 
-const addComponentLifetimeListener = (lifetime, listener) => {
+const addComponentLifetimeListener = (lifetime, handle) => {
   const context = useCurrentSetupContext();
-  if (context.isComponent) context.on?.(lifetime, listener);
+  if (context.isComponent) context.on?.(lifetime, handle);
 };
 
 /**
@@ -18,10 +18,10 @@ const addComponentLifetimeListener = (lifetime, listener) => {
  *
  * page/onLoad
  *
- * @param { () => void } listener 生命周期回调函数
+ * @param { () => void } handle 生命周期回调函数
  */
-export function onLoad(listener) {
-  addPageLifetimeListener("load", listener);
+export function onLoad(handle) {
+  addPageLifetimeListener("load", handle);
 }
 
 /**
@@ -29,10 +29,10 @@ export function onLoad(listener) {
  *
  * page/onUnload
  *
- * @param { () => void } listener 生命周期回调函数
+ * @param { () => void } handle 生命周期回调函数
  */
-export function onUnload(listener) {
-  addPageLifetimeListener("unload", listener);
+export function onUnload(handle) {
+  addPageLifetimeListener("unload", handle);
 }
 
 /**
@@ -44,10 +44,10 @@ export function onUnload(listener) {
  *
  * component/ready
  *
- * @param { () => void } listener 生命周期回调函数
+ * @param { () => void } handle 生命周期回调函数
  */
-export function onReady(listener) {
-  useCurrentSetupContext()?.on?.("ready", listener);
+export function onReady(handle) {
+  useCurrentSetupContext()?.on?.("ready", handle);
 }
 
 /**
@@ -57,10 +57,10 @@ export function onReady(listener) {
  *
  * component/pageLifetimes/show
  *
- * @param { () => void } listener 生命周期回调函数
+ * @param { () => void } handle 生命周期回调函数
  */
-export function onShow(listener) {
-  useCurrentSetupContext()?.on?.("show", listener);
+export function onShow(handle) {
+  useCurrentSetupContext()?.on?.("show", handle);
 }
 
 /**
@@ -70,10 +70,10 @@ export function onShow(listener) {
  *
  * component/pageLifetimes/hide
  *
- * @param { () => void } listener 生命周期回调函数
+ * @param { () => void } handle 生命周期回调函数
  */
-export function onHide(listener) {
-  useCurrentSetupContext()?.on?.("hide", listener);
+export function onHide(handle) {
+  useCurrentSetupContext()?.on?.("hide", handle);
 }
 
 /**
@@ -83,10 +83,10 @@ export function onHide(listener) {
  *
  * component/created
  *
- * @param { () => void } listener 生命周期回调函数
+ * @param { () => void } handle 生命周期回调函数
  */
-export function onCreated(listener) {
-  addComponentLifetimeListener("created", listener);
+export function onCreated(handle) {
+  addComponentLifetimeListener("created", handle);
 }
 
 /**
@@ -96,10 +96,10 @@ export function onCreated(listener) {
  *
  * component/attached
  *
- * @param { () => void } listener 生命周期回调函数
+ * @param { () => void } handle 生命周期回调函数
  */
-export function onAttached(listener) {
-  addComponentLifetimeListener("attached", listener);
+export function onAttached(handle) {
+  addComponentLifetimeListener("attached", handle);
 }
 
 /**
@@ -109,10 +109,10 @@ export function onAttached(listener) {
  *
  * component/detached
  *
- * @param { () => void } listener 生命周期回调函数
+ * @param { () => void } handle 生命周期回调函数
  */
-export function onDetached(listener) {
-  addComponentLifetimeListener("detached", listener);
+export function onDetached(handle) {
+  addComponentLifetimeListener("detached", handle);
 }
 
 /**
@@ -122,10 +122,10 @@ export function onDetached(listener) {
  *
  * component/moved
  *
- * @param { () => void } listener 生命周期回调函数
+ * @param { () => void } handle 生命周期回调函数
  */
-export function onMoved(listener) {
-  addComponentLifetimeListener("moved", listener);
+export function onMoved(handle) {
+  addComponentLifetimeListener("moved", handle);
 }
 
 /**
@@ -134,8 +134,8 @@ export function onMoved(listener) {
  * page/onResize
  * component/pageLifetimes/resize
  */
-export function onPageResize(listener) {
-  useCurrentSetupContext()?.on?.("resize", listener);
+export function onPageResize(handle) {
+  useCurrentSetupContext()?.on?.("resize", handle);
 }
 
 /**
@@ -145,10 +145,10 @@ export function onPageResize(listener) {
  *
  * component/pageLifetimes/routeDone
  *
- * @param { () => void } listener 生命周期回调函数
+ * @param { () => void } handle 生命周期回调函数
  */
-export function onRouteDone(listener) {
-  useCurrentSetupContext()?.on?.("routeDone", listener);
+export function onRouteDone(handle) {
+  useCurrentSetupContext()?.on?.("routeDone", handle);
 }
 
 /**
@@ -158,10 +158,10 @@ export function onRouteDone(listener) {
  *
  * component/error
  *
- * @param { (error: Error) => void } listener 生命周期回调函数
+ * @param { (error: Error) => void } handle 生命周期回调函数
  */
-export function onComponentError(listener) {
-  addComponentLifetimeListener("error", listener);
+export function onComponentError(handle) {
+  addComponentLifetimeListener("error", handle);
 }
 
 /**
@@ -190,7 +190,15 @@ export function onUnmounted(handle) {
   useCurrentSettingUpInstanceScope()?.onDispose(() => handle());
 }
 
-export function onPullDownRefresh(handle) {}
-export function onReachBottom(handle) {}
-export function onPageScroll(handle) {}
-export function onTabItemTap(handle) {}
+export function onPullDownRefresh(handle) {
+  useCurrentSetupContext()?.listen?.("PullDownRefres", handle);
+}
+export function onReachBottom(handle) {
+  useCurrentSetupContext()?.listen?.("ReachBottom", handle);
+}
+export function onPageScroll(handle) {
+  useCurrentSetupContext()?.listen?.("PageScroll", handle);
+}
+export function onTabItemTap(handle) {
+  useCurrentSetupContext()?.listen?.("TabItemTap", handle);
+}

@@ -1,56 +1,61 @@
 import { EventBus, isFunction } from "../utils/index";
 
 export default class State {
-  _value = undefined;
-  _watchable = false;
-  _eventBus = new EventBus();
+  #value = undefined;
+  #watchable = false;
+  #eventBus = new EventBus();
 
   constructor(value, { watchable, ...hooks }) {
-    this._value = value;
-    this._watchable = watchable;
-    this._eventBus.on("getstate", hooks.onGet);
-    this._eventBus.on("beforesetstate", hooks.onBeforeSet);
-    this._eventBus.on("aftersetstate", hooks.onAfterSet);
-    this._eventBus.on("beforesubscribe", hooks.onBeforeSubscribe);
-    this._eventBus.on("aftersubscribe", hooks.onAfterSubscribe);
+    this.#value = value;
+    this.#watchable = watchable;
+    this.#eventBus.on("getstate", hooks.onGet);
+    this.#eventBus.on("beforesetstate", hooks.onBeforeSet);
+    this.#eventBus.on("aftersetstate", hooks.onAfterSet);
+    this.#eventBus.on("beforesubscribe", hooks.onBeforeSubscribe);
+    this.#eventBus.on("aftersubscribe", hooks.onAfterSubscribe);
+  }
+
+  get $value$() {
+    return this.#value;
   }
 
   get value() {
-    const payload = { value: this._value };
-    this._eventBus?.emit("getstate", payload);
+    const payload = { value: this.#value };
+    this.#eventBus?.emit("getstate", payload);
     return payload.value;
   }
   set value(newValue) {
-    const { _value: oldValue, _watchable } = this;
-    const payload = { value: this._value, newValue };
-    this._eventBus?.emit("beforesetstate", payload);
+    const oldValue = this.#value;
+    const watchable = this.#watchable;
+    const payload = { value: oldValue, newValue };
+    this.#eventBus?.emit("beforesetstate", payload);
 
     if (payload.newValue !== oldValue) {
-      this._value = payload.newValue;
-      if (_watchable) {
-        this._eventBus?.emit("setstate", {
-          value: this._value,
+      this.#value = payload.newValue;
+      if (watchable) {
+        this.#eventBus?.emit("setstate", {
+          value: this.#value,
           oldValue,
         });
       }
-      this._eventBus?.emit("aftersetstate", {
-        value: this._value,
+      this.#eventBus?.emit("aftersetstate", {
+        value: this.#value,
         oldValue,
       });
     }
     return true;
   }
   subscribe(cb) {
-    if (this._watchable) {
+    if (this.#watchable) {
       const payload = {
         callback: cb,
       };
-      this._eventBus?.emit("beforesubscribe", payload);
+      this.#eventBus?.emit("beforesubscribe", payload);
       if (isFunction(payload.callback)) {
-        const unsubscribe = this._eventBus.on("setstate", (e) =>
+        const unsubscribe = this.#eventBus.on("setstate", (e) =>
           payload.callback(e.payload)
         );
-        this._eventBus?.emit("aftersubscribe", unsubscribe);
+        this.#eventBus?.emit("aftersubscribe", unsubscribe);
         return unsubscribe;
       }
     }

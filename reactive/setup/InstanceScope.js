@@ -1,41 +1,52 @@
-import {
-  createEffectScope,
-  isWatchable,
-  subscribeStateOfSignal,
-} from "../state/index";
+import { createEffectScope } from "../state/index";
 import { EventBus } from "../utils/index";
 import InstanceSetupContext from "./setup-context/InstanceSetupContext";
 
-const eventBus = new EventBus();
-class InstanceScope {
-  isRunning = false;
+class InstanceScope extends EventBus {
+  #effectScope = null;
+  #parentScope = null;
+  #instance = null;
+  #isRunning = false;
+  #pageId = `pageId:-1`;
+
   isPage = false;
   isComponent = false;
-  instance = null;
+
   context = null;
-  parentScope = null;
-  effectScope = null;
-  pageId = `pageId:-1`;
 
-  getId() {
-    return this.isPage ? this.pageId : this.instance.__wxExparserNodeId__;
+  get parentScope() {
+    return this.#parentScope;
   }
 
-  use({ props }) {
-    if (props) {
-      this.context.setupProps.values = props;
-    }
-    return this;
+  get isRunning() {
+    return this.#isRunning;
   }
+  get instance() {
+    return this.#instance;
+  }
+  get id() {
+    return this.isPage ? this.#pageId : this.#instance.__wxExparserNodeId__;
+  }
+  get pageId() {
+    return this.#pageId;
+  }
+
+  constructor(instance) {
+    super();
+    this.#instance = instance;
+    this.#pageId = instance.getPageId();
+    this.#effectScope = createEffectScope();
+  }
+
   run(fn, ctx) {
     try {
       ctx.setScope(this);
-      this.effectScope.run(() => {
-        this.isRunning = true;
+      this.#effectScope.run(() => {
+        this.#isRunning = true;
         fn(this.context);
-        this.isRunning = false;
+        this.#isRunning = false;
         this.context
-          .bindSignalsAndMethods()
+          .bindSignalsAndSetMethods()
           .forEach((unbind) => this.addLifeTimeListener("dispose", unbind));
       });
       ctx.resetScope(this);
@@ -47,63 +58,47 @@ class InstanceScope {
   }
   attachTo(parentScope, options) {
     if (parentScope) {
-      this.parentScope = parentScope;
+      this.#parentScope = parentScope;
     }
     if (this.isPage) {
       this.context.distributeLifeTimeEvent("load", options);
     } else if (this.isComponent) {
       this.context.distributeLifeTimeEvent("attached");
     }
-    eventBus
-      .emit(`${this.pageId}/lifetime:beforemount`)
-      .off(`${this.pageId}/lifetime:beforemount`);
-    eventBus
-      .emit(`${this.pageId}/lifetime:mounted`)
-      .off(`${this.pageId}/lifetime:mounted`);
+    this.emit(`lifetimes/beforemount`).off(`lifetimes/beforemount`);
+    this.emit(`lifetimes/mounted`).off(`lifetimes/mounted`);
     return this;
   }
-  bindParentProvidedData(key, setter) {
-    let data;
-    if (this.parentScope) {
-      data = this.parentScope.context.getProvidedData(this.parentScope, key);
-    } else {
-      data = this.context.getPageProvidedData(this, key);
+  getAncestorProvidedData(key, getPageScope) {
+    if (this.#parentScope) {
+      const data = this.#parentScope.context.getProvidedData(key);
+      // console.log("getAncestorProvidedData", key, data);
+      if (data) return data;
+      return this.#parentScope.getAncestorProvidedData(key, getPageScope);
     }
-    if (data === false) return;
-    if (data) {
-      if (isWatchable(data.value)) {
-        this.addLifeTimeListener(
-          "dispose",
-          subscribeStateOfSignal(data.value, ({ value }) => setter(value))
-        );
-      } else setter(data.value);
-    } else this.listenPageProvidedData(key, setter);
+    const pageIntanceScope = getPageScope(this.#pageId);
+    if (pageIntanceScope) {
+      this.#parentScope = pageIntanceScope;
+      return pageIntanceScope.context.getProvidedData(key);
+    }
+    return null;
   }
-  listenPageProvidedData(key, setter) {
-    this.addLifeTimeListener(
-      "dispose",
-      eventBus.on(`${this.pageId}/provide:${key}`, ({ payload }) =>
-        setter(payload)
-      )
-    );
+
+  addLifeTimeListener(lifetime, handler) {
+    this.context.checkIsNotIdle("add instance-scope lifetime listeners");
+    this.on(`lifetimes/${lifetime}`, handler);
   }
-  broadcastPageProvidedData(key, value) {
-    eventBus.emit(`${this.pageId}/provide:${key}`, value);
+  removeLifeTimeListener(lifetime, handler) {
+    this.off(`lifetimes/${lifetime}`, handler);
   }
-  addLifeTimeListener(lifetime, listener) {
-    eventBus.on(`${this.pageId}/lifetime:${lifetime}`, listener);
-  }
-  removeLifeTimeListener(lifetime, listener) {
-    eventBus.off(`${this.pageId}/lifetime:${lifetime}`, listener);
-  }
+
   stop() {
     if (this.isPage) {
       this.context.distributeLifeTimeEvent("unload");
     } else if (this.isComponent) {
       this.context.distributeLifeTimeEvent("detached");
     }
-    eventBus.emit(`${this.pageId}/lifetime:dispose`).offNamespace(this.pageId);
-
+    this.emit(`lifetimes/dispose`).clear();
     this.context.reset();
     this.setupProps = {
       defined: false,
@@ -111,20 +106,16 @@ class InstanceScope {
       setter: null,
     };
 
-    this.effectScope.stop();
-    this.effectScope = null;
+    this.#effectScope.stop();
+    this.#effectScope = null;
   }
 }
 
 export default function createInstanceScope(instance, configs) {
-  const scope = new InstanceScope();
-  scope.instance = instance;
-  scope.pageId = instance.getPageId();
-  console.log("instance.getPageId()", instance.getPageId());
+  const scope = new InstanceScope(instance);
   scope.context = new InstanceSetupContext({
     ...configs,
     instance,
   });
-  scope.effectScope = createEffectScope();
   return scope;
 }
