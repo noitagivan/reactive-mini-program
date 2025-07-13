@@ -2,7 +2,7 @@ import {
   defineComponent,
   onMounted,
   onShow,
-  ref,
+  // ref,
   useSchedule,
   useSignal,
   watch,
@@ -29,7 +29,7 @@ defineComponent({
       },
     });
     const [buttonName, setButtonName] = useSignal("Button");
-    const buttonName2 = ref("Button2");
+    // const buttonName2 = ref("Button2");
 
     provide("propA", () => props.propA);
     console.log("buttonName", buttonName);
@@ -88,7 +88,7 @@ defineComponent({
 
     useSchedule(() => {
       setButtonName("Clickable");
-      buttonName2.value = "Clickable2";
+      // buttonName2.value = "Clickable2";
     }, 3000);
 
     onShow(() => {
@@ -106,7 +106,7 @@ defineComponent({
 
     return {
       aaaa,
-      buttonName: buttonName2,
+      buttonName,
       onClick2(e) {
         console.log("setup onClick2", e, this);
       },
