@@ -10,7 +10,7 @@ import {
 } from "../../lib/index";
 
 defineComponent({
-  setup({ $props, provide, inject, defineProps, observe }) {
+  setup({ $this, $props, provide, inject, defineProps, observe }) {
     const props = defineProps({
       propA: {
         type: String,
@@ -97,7 +97,11 @@ defineComponent({
 
     onMounted(() => console.log("ParentMount"));
 
-    const onChildMount = (e) => console.log("onChildMount", e.detail);
+    const onChildMount = (e) => {
+      console.log("onChildMount", e.detail);
+      const child = $this.selectComponent("#test");
+      console.log("ChildExportOrInstance", child);
+    };
 
     return {
       aaaa,

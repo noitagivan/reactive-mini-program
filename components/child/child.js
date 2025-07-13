@@ -5,10 +5,22 @@ import {
   watch,
 } from "../../lib/index";
 
-defineComponent(({ $this, $emit, inject, onPageDataProvide }) => {
+defineComponent(({ $this, $emit, inject, onPageProvidedDataReady, expose }) => {
   const motto = inject("motto", "replace2");
   const propA = inject("propA", "propAAAA");
   const none = inject("none", "nulllll");
+
+  expose({
+    aaaa: "aaaa",
+    // bbbb: {},
+    // cccc: [],
+    // dddd: motto,
+    eeee: 5,
+    // ffff: () => {
+    //   console.log("invoked expose method");
+    // },
+    gggg: null,
+  });
 
   watch(
     [propA, none],
@@ -29,8 +41,8 @@ defineComponent(({ $this, $emit, inject, onPageDataProvide }) => {
     console.log("ChildMounted", propA());
     $emit("mounted", { me: $this });
   });
-  onPageDataProvide((key) => {
-    console.log("onPageDataProvide", key, propA());
+  onPageProvidedDataReady((key) => {
+    console.log("onPageProvidedDataReady", key, propA());
   });
   onPageScroll((e) => {
     console.log("component onPageScroll", e);
