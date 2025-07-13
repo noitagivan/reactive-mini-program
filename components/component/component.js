@@ -101,6 +101,7 @@ defineComponent({
       console.log("onChildMount", e.detail);
       const child = $this.selectComponent("#test");
       console.log("ChildExportOrInstance", child);
+      child.ffff("ffff");
     };
 
     return {

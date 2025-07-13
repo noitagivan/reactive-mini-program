@@ -12,13 +12,13 @@ defineComponent(({ $this, $emit, inject, onPageProvidedDataReady, expose }) => {
 
   expose({
     aaaa: "aaaa",
-    // bbbb: {},
-    // cccc: [],
-    // dddd: motto,
+    bbbb: {},
+    cccc: [],
+    dddd: motto,
     eeee: 5,
-    // ffff: () => {
-    //   console.log("invoked expose method");
-    // },
+    ffff: (...args) => {
+      console.log("invoked expose method", args, none());
+    },
     gggg: null,
   });
 
