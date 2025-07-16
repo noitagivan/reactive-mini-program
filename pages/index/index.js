@@ -23,7 +23,7 @@ definePage(({ provide, $this }) => {
   provide("motto", motto);
 
   watchEffect(() => {
-    console.log("globalCount", globalCount());
+    // console.log("globalCount", globalCount());
   });
 
   useSchedule(

@@ -2,6 +2,6 @@
 <view>
   <text>{{propA}} | {{propB}} | {{propC}}</text>
   <view bind:tap="onClick1">{{buttonName}} 1</view>
-  <view bind:tap="onClick2">{{buttonName}} 2</view>
+  <view bind:tap="onClick2">{{buttonName2}} 2</view>
   <child id="test" bind:mounted="onChildMount" />
 </view>
