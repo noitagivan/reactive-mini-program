@@ -1,0 +1,5 @@
+{
+  "usingComponents": {
+    "hello-world": "/components/hello-world/hello-world"
+  }
+}

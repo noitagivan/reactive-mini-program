@@ -5,7 +5,7 @@ import {
   watch,
 } from "../../lib/index";
 
-defineComponent(({ $this, $emit, inject, onPageProvidedDataReady, expose }) => {
+defineComponent(({ $this, $emit, inject, expose }) => {
   const motto = inject("motto", "replace2");
   const propA = inject("propA", "propAAAA");
   const none = inject("none", "nulllll");
@@ -40,9 +40,6 @@ defineComponent(({ $this, $emit, inject, onPageProvidedDataReady, expose }) => {
   onMounted(() => {
     console.log("ChildMounted", propA());
     $emit("mounted", { me: $this });
-  });
-  onPageProvidedDataReady((key) => {
-    console.log("onPageProvidedDataReady", key, propA());
   });
   onPageScroll((e) => {
     console.log("component onPageScroll", e);
