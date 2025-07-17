@@ -31,8 +31,8 @@ defineComponent(({ $this, $emit, inject, expose }) => {
   );
   watch(
     motto,
-    (m, om) => {
-      console.log("watch providedData child: motto", m, om);
+    (_, om) => {
+      console.log("watch providedData child: motto", motto.value, om);
     },
     { immediate: true }
   );
