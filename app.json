@@ -1,5 +1,5 @@
 {
-  "pages": ["pages/home/index/index", "pages/index/index", "pages/logs/logs"],
+  "pages": ["pages/index/index", "pages/home/index/index", "pages/logs/logs"],
   "window": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "Weixin",
