@@ -11,11 +11,14 @@ import {
 } from "../../lib/index";
 
 defineComponent({
-  setup({ $this, $props, provide, inject, defineProps, observe }) {
+  setup({ $this, provide, inject, defineProps, observe }) {
     const props = defineProps({
       propA: {
         type: String,
         value: "00000",
+        observer(a) {
+          console.log(2222, a);
+        },
       },
       propB: Boolean,
       propC: {
@@ -33,6 +36,8 @@ defineComponent({
     const buttonName2 = ref("Button");
 
     provide("propA", () => props.propA);
+    provide("propB", () => props.propB);
+    provide("propC", () => props.propC);
 
     // watch(
     //   aaaa,
@@ -55,23 +60,19 @@ defineComponent({
     // );
 
     // watchEffect(() => {
-    //   console.log("watchEffect->$props", $props());
-    // });
-
-    // watchEffect(() => {
     //   console.log("watchEffect->propA", props.propA, buttonName2.value);
     // });
     watchEffect(() => {
       console.log("watchEffect->buttonName2", buttonName2.value);
     });
 
-    // watch(
-    //   props,
-    //   (v) => {
-    //     console.log("watch(props)", v);
-    //   },
-    //   { immediate: true }
-    // );
+    watch(
+      ["aaaa", () => props.propA],
+      (v) => {
+        console.log("watch(props)", v);
+      },
+      { immediate: true }
+    );
 
     // observe([page, "propB", motto], (p, b, m) => {
     //   console.log("observe(page, propB, motto)", p, b, m);
