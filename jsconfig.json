@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+        "strict": true,
+        "skipLibCheck": true
+    },
+    "include": [
+        "**/*.js", // 包含所有JS文件
+        "**/*.d.ts" // 包含类型声明文件
+    ],
+}

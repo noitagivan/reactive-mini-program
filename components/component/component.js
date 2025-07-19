@@ -16,7 +16,7 @@ defineComponent({
       propA: {
         type: String,
         value: "00000",
-        observer(a) {
+        observer(a, b) {
           console.log(2222, a);
         },
       },
@@ -67,7 +67,57 @@ defineComponent({
     });
 
     watch(
-      ["aaaa", () => props.propA],
+      ["aaaa", props, buttonName, buttonName2, () => props.propA],
+      (v) => {
+        console.log("watch(props)", v);
+      },
+      { immediate: true }
+    );
+
+    watch(
+      [props, () => props.propB],
+      (v) => {
+        console.log("watch(props)", v);
+      },
+      { immediate: true }
+    );
+    watch(
+      () => props.propC,
+      (v) => {
+        console.log("watch(props)", v);
+      },
+      { immediate: true }
+    );
+    watch(
+      props,
+      (v) => {
+        console.log("watch(props)", v);
+      },
+      { immediate: true }
+    );
+    watch(
+      buttonName2,
+      (v) => {
+        console.log("watch(props)", v);
+      },
+      { immediate: true }
+    );
+    watch(
+      buttonName,
+      (v) => {
+        console.log("watch(props)", v);
+      },
+      { immediate: true }
+    );
+    watch(
+      "buttonName",
+      (v) => {
+        console.log("watch(props)", v);
+      },
+      { immediate: true }
+    );
+    watch(
+      true,
       (v) => {
         console.log("watch(props)", v);
       },

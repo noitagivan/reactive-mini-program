@@ -1,11 +1,13 @@
-interface PageOptions {
+interface CommonOptionsOption {
   multipleSlots: boolean;
   addGlobalClass: boolean;
-  styleIsolation: "page-isolated" | "page-apply-shared" | "page-shared";
   pureDataPattern: string;
 }
+interface PageOptionsOption extends CommonOptionsOption {
+  styleIsolation: "page-isolated" | "page-apply-shared" | "page-shared";
+}
 
-interface ComponentOptions extends PageOptions {
+interface ComponentOptionsOption extends CommonOptionsOption {
   styleIsolation: "isolated" | "apply-shared" | "shared";
   virtualHost: boolean;
 }
@@ -23,12 +25,12 @@ interface SettingUpContext {
 interface PageSettingUpContext extends SettingUpContext {
   $this: PageInstance;
   isPage: true;
-  defineOptions: (options: Partial<PageOptions>) => void;
+  defineOptions: (options: Partial<PageOptionsOption>) => void;
   onPullDownRefresh: (handle: () => void) => void;
   onReachBottom: (handle: () => void) => void;
-  onPageScroll: (handle: ({ scrollTop: number }) => void) => void;
+  onPageScroll: (handle: (event: { scrollTop: number }) => void) => void;
   onTabItemTap: (
-    handle: (item: {
+    handle: (event: {
       index: `${number}`;
       pagePath: string;
       text: string;
@@ -78,11 +80,16 @@ type PropConstructor<T> =
   | { new (...args: any[]): {} }
   | PropMethod<T>;
 
+interface PropObserver<T> {
+  (): void;
+  (value: T): void;
+  (value: T, oldValue: T): void;
+}
 type PropOptions<T = any, D = T> = {
   type: PropConstructor<T>;
   optionalTypes?: (PropConstructor<T> | null)[];
   value?: D;
-  observer?(value?: T | D, oldValue?: T | D): void;
+  observer?: PropObserver<T>;
 };
 
 type Prop<T, D = T> = PropConstructor<T> | PropOptions<T, D>;
@@ -105,11 +112,18 @@ type InferPropType<T> = T extends { type: infer Type }
   ? O
   : never;
 
+type ObserveKey = string;
+type ObserveSource =
+  | ObserveKey
+  | SignalImpl<any>
+  | Getter<any>
+  | InternalSignalCarrier<any>;
+
 interface ComponentSettingUpContext extends SettingUpContext {
   $this: ComponentInstance;
   $emit: ComponentInstance["triggerEvent"];
   isComponent: true;
-  defineOptions(options: Partial<ComponentOptions>): void;
+  defineOptions(options: Partial<ComponentOptionsOption>): void;
   externalClasses(classes: string[], ...more: (string | string[])[]): void;
   defineRelation(id: string, description: RelationDescription): void;
   defineProps<T extends PropDefinations = PropDefinations>(
@@ -121,7 +135,7 @@ interface ComponentSettingUpContext extends SettingUpContext {
   expose(exports: Record<string, any>): void;
   defineExpose(exports: Record<string, any>): void;
   observe(
-    source: any[],
+    source: ObserveSource | ObserveSource[],
     callback: (...values: unknown[]) => void
   ): () => boolean;
 }
