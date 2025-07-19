@@ -6,8 +6,8 @@ defineComponent(({ defineProps, observe }) => {
   });
 
   const greeting = computed(() => `Hello, ${props.name}!`, {
-    onTrigger: (e) => console.log(e),
-    onTrack: (e) => console.log(e),
+    // onTrigger: (e) => console.log(e),
+    // onTrack: (e) => console.log(e),
   });
 
   observe([() => props.name], (name) => console.log(name));
