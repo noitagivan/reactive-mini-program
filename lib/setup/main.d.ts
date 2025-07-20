@@ -1,4 +1,4 @@
-export function defineApp(): void;
+export function defineApp(setup: () => Record<string, any>): void;
 
 export function definePage(setup: PageSetupFunc): void;
 export function definePage(options: PageSetupOptions): void;

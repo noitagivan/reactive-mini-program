@@ -57,7 +57,7 @@ interface ComponentSettingUpContext extends SettingUpContext {
   ): () => boolean;
 }
 interface PageSetupFunc {
-  (context: PageSettingUpContext): void;
+  (context: PageSettingUpContext): Record<string, any>;
 }
 interface PageSetupOptions {
   setup: PageSetupFunc;
