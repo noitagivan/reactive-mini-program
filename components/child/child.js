@@ -5,12 +5,12 @@ import {
   watch,
 } from "../../lib/index";
 
-defineComponent(({ $this, $emit, inject, expose }) => {
+defineComponent(({ $this, $emit, inject, defineExpose }) => {
   const motto = inject("motto", "replace2");
   const propA = inject("propA", "propAAAA");
   const none = inject("none", "nulllll");
 
-  expose({
+  defineExpose({
     aaaa: "aaaa",
     bbbb: {},
     cccc: [],

@@ -1,7 +1,7 @@
 type UpdateSignalValueOptions = { forced?: boolean; shouldBeRetrack?: boolean };
 
-interface Getter<T = any> {
-  (): T;
+interface Getter<R = any> {
+  (): R;
 }
 interface SignalImpl<T = any> extends Getter<T> {
   readonly name: "Signal";
@@ -56,9 +56,9 @@ interface WatchOptions<T = any>
 }
 
 interface WatchHandler {
-  readonly pause: () => void;
-  readonly resume: () => void;
-  readonly stop: () => void;
+  readonly pause: ParamLessCallback;
+  readonly resume: ParamLessCallback;
+  readonly stop: ParamLessCallback;
 }
 interface WatchHandle extends WatchHandler {
   (): void;

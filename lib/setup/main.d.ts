@@ -20,4 +20,4 @@ export function defineComponent<
   options: Omit<ComponentSetupOptions<T>, "setup">
 ): void;
 
-export function useActiveSetupContext(): void;
+export function useActiveSetupContext(): ExposedActiveSetupContext | null;
