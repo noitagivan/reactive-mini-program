@@ -12,7 +12,7 @@ type NonNullablePrimitive = Exclude<PrimitiveType, null | undefined>;
 
 type CommonFunction<T = unknown, A = unknown[]> = (...args: A) => T;
 
-type RMPVoidFunction<A = unknown[]> = CommonFunction<void, T>;
+type RMPVoidFunction<A = unknown[]> = CommonFunction<void, A>;
 
 type ParamlessFunction<T = unknown> = () => T;
 
