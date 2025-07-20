@@ -1,9 +1,12 @@
-import { computed, defineComponent } from "../../lib/index";
+import { computed, defineComponent, useSetupApp } from "../../lib/index";
 
 defineComponent(({ defineProps, observe }) => {
   const props = defineProps({
     name: String,
   });
+
+  /** @type {UseSetupApp<AppDataAndMethod>} */
+  const { userInfo } = useSetupApp();
 
   const greeting = computed(() => `Hello, ${props.name}!`, {
     // onTrigger: (e) => console.log(e),

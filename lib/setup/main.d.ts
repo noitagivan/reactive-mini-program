@@ -1,4 +1,4 @@
-export function defineApp(setup: () => Record<string, any>): void;
+export function defineApp<T = Record<string, any>>(setup: () => T): void;
 
 export function definePage(setup: PageSetupFunc): void;
 export function definePage(options: PageSetupOptions): void;
@@ -20,4 +20,5 @@ export function defineComponent<
   options: Omit<ComponentSetupOptions<T>, "setup">
 ): void;
 
+export function useSetupApp<T = Record<string, any>>(): T;
 export function useActiveSetupContext(): ExposedActiveSetupContext | null;

@@ -1,4 +1,4 @@
-import { defineApp } from "./lib/setup/main";
+import { defineApp } from "./lib/index";
 
 defineApp(() => {
   const onLaunch = () => {
