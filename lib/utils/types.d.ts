@@ -10,13 +10,13 @@ type PrimitiveType =
 // 等价于：string | number | boolean | symbol | bigint
 type NonNullablePrimitive = Exclude<PrimitiveType, null | undefined>;
 
-type CommonFunction<T = unknown[], R = unknown> = (...args: T) => R;
+type CommonFunction<T = unknown, A = unknown[]> = (...args: A) => T;
 
-type VoidFunction<T = unknown[]> = CommonFunction<T, void>;
+type RMPVoidFunction<A = unknown[]> = CommonFunction<void, T>;
 
-type ParamlessFunction<R = unknown> = () => R;
+type ParamlessFunction<T = unknown> = () => T;
 
-type EventHandle<T = unknown> = CommonFunction<[T], void>;
+type EventHandle<T = unknown> = CommonFunction<void, [T]>;
 
 type ParamLessCallback = ParamlessFunction<void>;
 
